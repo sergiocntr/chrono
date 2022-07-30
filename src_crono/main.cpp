@@ -22,27 +22,6 @@ void smartDelay(unsigned long mytime){
   }
 }
 
-void setup() {
-delay(2000);
-Serial.begin(9600);
-  delay(10);
-mqttWifi::setupWifi();
-  delay(10);
-  mqttWifi::setupMqtt();
-  delay(10);
-  uint8_t res = mqttWifi::connectWifi();
-  delay(10);
-  mqttWifi::reconnect();
-  delay(10);
-  nexchr::nex_routines();
-  delay(10);
-  irrecv.enableIRIn();  // Start the receiver
-  delay(10);
-  wifi_initiate=millis();
-  tempDHT::setupTemp();
-  tempDHT::getLocalTemp();
-}
-
 void irRoutine(){
   if (irrecv.decode(&results)) {
     uint64_t infraredNewValue = results.value;
@@ -70,13 +49,32 @@ void irRoutine(){
     irrecv.resume();  // Receive the next value
   }
 }
+
+void setup() {
+delay(2000);
+Serial.begin(9600);
+  delay(10);
+  mqttWifi::setupWifi();
+  delay(10);
+  mqttWifi::setupMqtt();
+  delay(10);
+  mqttWifi::connectWifi();
+  delay(10);
+  mqttWifi::reconnect();
+  delay(10);
+  nexchr::nex_routines();
+  delay(10);
+  irrecv.enableIRIn();  // Start the receiver
+  delay(10);
+  wifi_initiate=millis();
+  tempDHT::setupTemp();
+  tempDHT::getLocalTemp();
+}
+
 void loop() {
-  uint32_t adesso= millis();
-  //tempDHT::getLocalTemp();
   irRoutine();
-  
   yield();
-  if((adesso - wifi_initiate) > wifi_check_time){ 
+  if((millis() - wifi_initiate) > wifi_check_time){ 
     wifi_initiate = millis();
     tempDHT::setupTemp();
     smartDelay(500);

@@ -15,9 +15,22 @@ namespace mqttWifi{
   PubSubClient client(c);
 
 bool  mqttOK=0;
+void adessoDormo();
 void  publish(const char* topic,const char* message ){
   mqttOK = client.publish(topic, message,sizeof(message));
   
+}
+void adessoDormo(){
+  sendCommand("thup=1");
+  sendCommand("sleep=1");
+  client.disconnect();
+  delay(10);
+  WiFi.disconnect(true);
+  wifi_set_sleep_type(LIGHT_SLEEP_T);
+  WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
+  WiFi.forceSleepBegin();
+  delay(180000);
+  ESP.reset();
 }
 
 void sendData(){
@@ -37,7 +50,7 @@ void sendData(){
     myTemp.h = 0;
     myTemp.t = 0;
     delay(10);
-
+  if(!mqttOK) adessoDormo();
 }
 // void stampaDebug(int8_t intmess){
 //   String myMess;
@@ -58,19 +71,7 @@ void sendData(){
 //   Ntcurr.setText(myMess.c_str());
 //   smartDelay(2000);
 // }
-void adessoDormo(){
-  mqttOK=1;
-  sendCommand("thup=1");
-  sendCommand("sleep=1");
-  client.disconnect();
-  delay(10);
-  WiFi.disconnect(true);
-  wifi_set_sleep_type(LIGHT_SLEEP_T);
-  WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
-  WiFi.forceSleepBegin();
-  delay(180000);
-  ESP.reset();
-}
+
 void checkForUpdates() {
   
   String fwURL = String( fwUrlBase );
@@ -181,7 +182,7 @@ void callback(char* topic, byte* payload, unsigned int length){
   }
   if(check) return;
   delay(10);
-  StaticJsonBuffer<100> jsonBuffer;
+  StaticJsonBuffer<256> jsonBuffer;
   JsonObject& root = jsonBuffer.parseObject(payload);
   String msg_Topic = root["topic"];
   if(strcmp(topic, systemTopic) == 0 ) {
@@ -243,14 +244,14 @@ void setupWifi(){
   delay(10);
   WiFi.config(ipChrono, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
   delay(10);
-  wl_status_t res =  WiFi.begin(ssid, password);
+  WiFi.begin(ssid, password);
   //Serial.println(String(res));
 }
 // void smartDelay(uint32_t tempo){
 //   uint32_t adesso = millis();
 // }
 void setupMqtt(){
-String clientId = String(mqttId);
+  String clientId = String(mqttId);
   clientId += String(random(0xffff), HEX);
   delay(10);
   client.setServer(mqtt_server, mqtt_port);

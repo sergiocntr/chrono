@@ -1,20 +1,13 @@
 #pragma once
 #include <Arduino.h>
 #include "Nextion.h"
-const uint16_t versione = 115;
+const uint16_t versione = 117;
 const char* mqttId="Chrono";
 struct tempStr{
   float t;
   float h;
 };
 tempStr myTemp;
-enum updatApp{
-  UP_FAIL,
-  NO_UP,
-  UP_OK,
-  SAME_VER,
-  CONN_FAIL
-};
 uint8_t db_array_value[4] = {0};
 NexText Nset_temp         = NexText(0, 2, "Nset_temp");
 NexText Ntcurr            = NexText(0, 3, "Ntcurr");
