@@ -278,7 +278,8 @@ bool connectWifi(){
   uint32_t wifi_initiate = millis();
   while (WiFi.status() != WL_CONNECTED) {
     if ((millis() - wifi_initiate) > 5000L) {
-      return 1;
+      
+      return 0;
       
     }
     delay(500);
@@ -297,7 +298,7 @@ bool connectWifi(){
   wifi_initiate = millis();
   while (!client.connected()) {
     if ((millis() - wifi_initiate) > 5000L) {
-      return 2;
+      return 0;
       //blinkLed(5);
       //adessoDormo();
       //dopo c'e' il restart
@@ -306,7 +307,7 @@ bool connectWifi(){
   } 
   delay(50);
   //reconnect();
-  return 0;
+  return 1;
 }
 void reconnect() {
   delay(10);

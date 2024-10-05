@@ -58,8 +58,10 @@ Serial.begin(9600);
   delay(10);
   mqttWifi::setupMqtt();
   delay(10);
-  mqttWifi::connectWifi();
+  bool res = mqttWifi::connectWifi();
   delay(10);
+  if(!res) mqttWifi::adessoDormo();
+  
   mqttWifi::reconnect();
   delay(10);
   nexchr::nex_routines();
@@ -68,6 +70,7 @@ Serial.begin(9600);
   delay(10);
   wifi_initiate=millis();
   tempDHT::setupTemp();
+  smartDelay(500);
   tempDHT::getLocalTemp();
 }
 
