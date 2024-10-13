@@ -1,13 +1,29 @@
 #pragma once
 #include <Arduino.h>
 #include "Nextion.h"
-const uint16_t versione = 118;
+const uint16_t versione = 148;
 const char* mqttId="Chrono";
 struct tempStr{
   float t;
   float h;
 };
 tempStr myTemp;
+
+enum Tende {
+    TENDA_SALOTTO,    // 0
+    TENDA_LEO,        // 1
+    TAPPA_SALOTTO,   // 2
+    TAPPA_LEO,        // 3 
+    TAPPA_CAMERA      // 4
+};
+
+// Enum per i comandi delle tende
+enum ComandoTende {
+    CHIUDI,        // 0
+    APRI,          // 1
+    APRI_PARZIALE  // 2
+};ComandoTende comandoTenda;
+
 uint8_t db_array_value[4] = {0};
 NexText Nset_temp         = NexText(0, 2, "Nset_temp");
 NexText Ntcurr            = NexText(0, 3, "Ntcurr");
@@ -26,5 +42,7 @@ NexTouch *nex_listen_list[] ={
   &Nrisc_on,
   &Nwater_on,
   &Nalarm,
+  &Nb_up,
+  &Nb_down,
   NULL
 };

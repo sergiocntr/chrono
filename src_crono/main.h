@@ -12,7 +12,7 @@ uint32_t wifi_check_time=60000L;
 
 //char buffer[15]={0};
 void blinkLed(uint8_t volte);
-void sendData();
+//void sendData();
 
 void irRoutine();
 

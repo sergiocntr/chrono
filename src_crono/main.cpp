@@ -1,5 +1,4 @@
 #include <main.h>
-#include <Int64String.h>
 //char buffer[15]={0};
 void pl(uint8_t num){
   Serial.println(num);
@@ -85,37 +84,3 @@ void loop() {
   }
   smartDelay(1000);
 }
-
-/* void sendMySql(char* temp,char* hum){
-  //WiFiClient mySqlclient;
-  if (mywifi.connect(host, httpPort))
-  {
-    String s =String("GET /meteofeletto/chrono_logger.php?temp=" + String(temp) +
-    +"&&pwd=" + webpass +
-    +"&&hum=" + String(hum) +
-    + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
-    smartDelay(100);
-    mywifi.println(s);
-    smartDelay(100);
-    //mywifi.stop();
-  }
-} */
-//boolean screenOff = true;
-
-// void sendData();
-// void checkForUpdates();
-// void reconnect();
-// void checkConn();
-// void callback(char* topic, byte* payload, unsigned int length);
-// void nex_routines();
-// void Nwater_onPushCallback(void *ptr);
-// void Nrisc_onPushCallback(void *ptr);
-// void Nb_AlarmCallback(void *ptr);
-// //void Nb_downPushCallback(void *ptr);
-// //void Nb_upPushCallback(void *ptr);
-// void update_buttons();
-// uint8_t toggle_button(int value);
-// void stampaDebug(int8_t intmess);
-// void smartDelay(unsigned long mytime);
-// void getLocalTemp();
-// void irRoutine();
