@@ -232,7 +232,7 @@ void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int 
     if (check)
       return;
     delay(10);
-    StaticJsonBuffer<100> jsonBuffer;
+    StaticJsonBuffer<512> jsonBuffer;
     JsonObject &root = jsonBuffer.parseObject(payload);
     String msg_Topic = root["topic"];
     if (strcmp(topic, systemTopic) == 0)

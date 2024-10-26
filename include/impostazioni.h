@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "Nextion.h"
-const uint16_t versione = 148;
+const uint16_t versione = 149;
 const char* mqttId="Chrono";
 struct tempStr{
   float t;
