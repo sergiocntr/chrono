@@ -39,7 +39,7 @@ namespace mqttWifi
 
   void sendData()
   {
-    // byte cnf = dht.computePerception(tH.temperature , tH.humidity);
+    
     delay(10);
     StaticJsonBuffer<256> jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
@@ -290,138 +290,60 @@ void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int 
 #endif
   }
 
-  /*
-  void callback(char *topic, byte *payload, unsigned int length) {
-      char message[length + 1];
-      memcpy(message, payload, length);
-      message[length] = '\0';
+ void setupWifi() {
+  WiFi.persistent(false);
+  WiFi.disconnect(true); // reset SDK config
+  delay(200);
+  
+  WiFi.setOutputPower(14);       // riduce assorbimento
+  WiFi.mode(WIFI_OFF);           // spegne per forzare stato pulito
+  delay(10);
+  WiFi.hostname("chrono");
+  WiFi.mode(WIFI_STA);
+  WiFi.forceSleepWake();         // workaround per bug init
+  delay(10);
+  
+  WiFi.config(ipChrono, gateway, subnet, dns1); // static IP
+  delay(10);
+  WiFi.begin(ssid, password);   // connessione
+}
 
-      // Pubblica il messaggio ricevuto sul topic di log
-      client.publish(logTopic, message);
-      delay(5);  // Delay per prevenire eventuali watchdog
+void setupMqtt() {
+  String clientId = String(mqttId) + String(random(0xffff), HEX);
+  delay(10);
 
-      StaticJsonDocument<512> doc;
-      DeserializationError error = deserializeJson(doc, message);
-      if (error) {
-          // Pubblica il messaggio di errore sul log
-          String errorMessage = String("JSON deserialization failed: ") + error.c_str();
-          client.publish(logTopic, errorMessage.c_str());
-          delay(5);  // Delay per prevenire eventuali watchdog
-          return;
-      }
+  client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
+  delay(100);
 
-      for (JsonPair kv : doc.as<JsonObject>()) {
-          const char* key = kv.key().c_str();
-
-          // Controllo se il valore è un numero o una stringa
-          if (kv.value().is<const char*>()) {
-              const char* value = kv.value().as<const char*>();
-              // Pubblica la chiave e il valore sul topic di log
-              String logMessage = String("Key: ") + key + ", Value (string): " + value;
-              client.publish(logTopic, logMessage.c_str());
-              delay(5);  // Delay per prevenire eventuali watchdog
-          } else if (kv.value().is<double>()) {
-              double num = kv.value().as<double>();
-              char buffer[20];
-              dtostrf(num, 6, 2, buffer); // Converte double con 2 cifre decimali
-              String logMessage = String("Key: ") + key + ", Value (double): " + buffer;
-              client.publish(logTopic, logMessage.c_str());
-              delay(5);  // Delay per prevenire eventuali watchdog
-          }
-      }
-  }
-  */
-  void setupWifi()
-  {
-    WiFi.persistent(false); // Solve possible wifi init errors (re-add at 6.2.1.16 #4044, #4083)
-    WiFi.disconnect(true);  // Delete SDK wifi config
-    delay(200);
-    WiFi.setOutputPower(14); // 10dBm == 10mW, 14dBm = 25mW, 17dBm = 50mW, 20dBm = 100mW
-    WiFi.mode(WIFI_OFF);     // energy saving mode if local WIFI isn't connected
-    delay(10);
-    WiFi.hostname("chrono"); // DHCP Hostname (useful for finding device for static lease)
-    WiFi.mode(WIFI_STA);
-    WiFi.forceSleepWake();
-    delay(10);
-    WiFi.config(ipChrono, gateway, subnet, dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
-    delay(10);
-    WiFi.begin(ssid, password);
-    // Serial.println(String(res));
-  }
-  // void smartDelay(uint32_t tempo){
-  //   uint32_t adesso = millis();
-  // }
-  void setupMqtt()
-  {
-    String clientId = String(mqttId);
-    clientId += String(random(0xffff), HEX);
-    delay(10);
-    client.setServer(mqtt_server, mqtt_port);
-    client.setCallback(callback);
-    delay(100);
+  uint32_t start = millis();
+  while (!client.connected()) {
+    if (millis() - start > 5000) {
+      mqttOK = 1; // flag di errore
+      return;
+    }
     client.connect(clientId.c_str(), mqttUser, mqttPass);
-    delay(10);
-    uint32_t wifi_initiate = millis();
-    while (!client.connected())
-    {
-      if ((millis() - wifi_initiate) > 5000L)
-      {
-        // adessoDormo();
-        // dopo c'e' il restart
-        mqttOK = 1;
-        return;
-      }
-      // smartDelay(500);
-      client.loop();
-      delay(100);
-    }
-    delay(50);
-    mqttOK = 0;
+    delay(250);
   }
-  bool connectWifi()
-  {
-    uint32_t wifi_initiate = millis();
-    while (WiFi.status() != WL_CONNECTED)
-    {
-      if ((millis() - wifi_initiate) > 5000L)
-      {
 
-        return 0;
-      }
-      delay(500);
+  mqttOK = 0; // ok
+  delay(50);
+}
+
+  bool connectWifi() {
+    uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED) {
+      if (millis() - start > 5000) return false; // timeout
+      delay(250);
     }
-    delay(10);
-    // blinkLed(2);
-    // sendCrash();
-    String clientId = String(mqttId);
-    clientId += String(random(0xffff), HEX);
-    delay(10);
-    client.setServer(mqtt_server, mqtt_port);
-    client.setCallback(callback);
     delay(100);
-    client.connect(clientId.c_str(), mqttUser, mqttPass);
-    delay(10);
-    wifi_initiate = millis();
-    while (!client.connected())
-    {
-      if ((millis() - wifi_initiate) > 5000L)
-      {
-        return 0;
-        // blinkLed(5);
-        // adessoDormo();
-        // dopo c'e' il restart
-      }
-      delay(500);
-    }
-    delay(50);
-    // reconnect();
-    return 1;
+    return true;
   }
-  void reconnect()
-  {
+  void reconnect() {
     delay(10);
     client.publish(logTopic, "Crono connesso");
     delay(10);
+    
     client.subscribe(systemTopic);
     delay(10);
     client.subscribe(casaSensTopic);
@@ -435,6 +357,6 @@ void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int 
     client.subscribe(updateTopic);
     delay(10);
     mqttOK = client.subscribe(eneValTopic);
-    client.loop();
+    client.loop(); // importante per completare handshake
   }
 }

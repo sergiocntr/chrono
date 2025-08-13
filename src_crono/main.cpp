@@ -50,28 +50,27 @@ void irRoutine(){
 }
 
 void setup() {
-delay(2000);
-Serial.begin(9600);
-  delay(10);
-  mqttWifi::setupWifi();
-  delay(10);
-  mqttWifi::setupMqtt();
-  delay(10);
-  bool res = mqttWifi::connectWifi();
-  delay(10);
-  if(!res) mqttWifi::adessoDormo();
+  delay(1000); // inizializzazione generale
+  Serial.begin(9600);
+
+  mqttWifi::setupWifi();           // prepara e chiama WiFi.begin
+  if (!mqttWifi::connectWifi()) {  // attende connessione
+    mqttWifi::adessoDormo();       // entra in sleep se fallisce
+  }
+
+  mqttWifi::setupMqtt();           // setServer, setCallback, connect MQTT
+  mqttWifi::reconnect();           // publish iniziale + subscribe
+
   
-  mqttWifi::reconnect();
-  delay(10);
-  nexchr::nex_routines();
-  delay(10);
-  irrecv.enableIRIn();  // Start the receiver
-  delay(10);
-  wifi_initiate=millis();
-  tempDHT::setupTemp();
-  smartDelay(500);
-  tempDHT::getLocalTemp();
+  irrecv.enableIRIn();             // IR
+  wifi_initiate = millis();        // timestamp
+
+  nexchr::nex_routines();          // init Nextion
+
+  tempDHT::setupTemp();            // init DHT
+  tempDHT::getLocalTemp();         // lettura iniziale
 }
+
 
 void loop() {
   irRoutine();
