@@ -16,30 +16,41 @@ namespace mqttWifi
   PubSubClient client(c);
 
   bool mqttOK = 0;
-  void adessoDormo();
+  void adessoDormo(uint8_t mode);
   void publish(const char *topic, const char *message)
   {
     mqttOK = client.publish(topic, message, strlen(message));
 
-    if(!mqttOK) adessoDormo();
+    if (!mqttOK)
+      adessoDormo(8);
   }
-  void adessoDormo()
+  void adessoDormo(uint8_t mode) // 0 = non comandi a nextion // 1 no comandi wifi // 8  =tutto
   {
-    sendCommand("thup=1");
-    sendCommand("sleep=1");
-    client.disconnect();
-    delay(10);
-    WiFi.disconnect(true);
-    wifi_set_sleep_type(LIGHT_SLEEP_T);
-    WiFi.mode(WIFI_OFF); // energy saving mode if local WIFI isn't connected
-    WiFi.forceSleepBegin();
-    delay(180000);
-    ESP.reset();
+    if (mode > 0)
+    {
+      sendCommand("thup=1");
+      sendCommand("sleep=1");
+    }
+    if (mode > 1)
+    {
+      if (client.connected())
+      {
+        client.disconnect(); // Chiude connessione TCP pulitamente
+        client.loop();
+        delay(100);
+      }
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        WiFi.disconnect(); // SENZA true, non serve cancellare credenziali
+        delay(100);        // Tempo per inviare il pacchetto
+      }
+    }
+    ESP.deepSleep(300e6); // Spegne tutto automaticamente
   }
 
   void sendData()
   {
-    
+
     delay(10);
     StaticJsonBuffer<256> jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
@@ -55,34 +66,37 @@ namespace mqttWifi
     myTemp.h = 0;
     myTemp.t = 0;
     delay(10);
-    
+
     if (!mqttOK)
-      adessoDormo();
+      adessoDormo(8);
   }
 
-void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int percentuale) {
+  void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int percentuale)
+  {
     StaticJsonBuffer<256> jsonBuffer;
-    JsonObject& root = jsonBuffer.createObject();
-    
+    JsonObject &root = jsonBuffer.createObject();
+
     // Usa una variabile temporanea per l'enum comando
     int comandoInt = (int)comando;
-    root["comando"] = comandoInt;  // Assegna la versione int
-    
-    if (comando == 2) { // APRI PARZIALE
-        root["percentuale"] = percentuale;
+    root["comando"] = comandoInt; // Assegna la versione int
+
+    if (comando == 2)
+    { // APRI PARZIALE
+      root["percentuale"] = percentuale;
     }
 
-    JsonArray& tendeArray = root.createNestedArray("tende");
-    for (size_t i = 0; i < numTende; i++) {
-        tendeArray.add((int)tendeTargets[i]);  // Conversione esplicita a int
+    JsonArray &tendeArray = root.createNestedArray("tende");
+    for (size_t i = 0; i < numTende; i++)
+    {
+      tendeArray.add((int)tendeTargets[i]); // Conversione esplicita a int
     }
-    
+
     delay(10);
     char JSONmessageBuffer[256];
     root.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
 
     publish(tendeTuya, JSONmessageBuffer);
-}
+  }
 
   void checkForUpdates()
   {
@@ -187,7 +201,7 @@ void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int 
       {
         delay(10);
         check = 1;
-        adessoDormo();
+        adessoDormo(8);
       }
     }
     else if (strcmp(topic, updateTopic) == 0)
@@ -290,60 +304,83 @@ void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int 
 #endif
   }
 
- void setupWifi() {
-  WiFi.persistent(false);
-  WiFi.disconnect(true); // reset SDK config
-  delay(200);
-  
-  WiFi.setOutputPower(14);       // riduce assorbimento
-  WiFi.mode(WIFI_OFF);           // spegne per forzare stato pulito
-  delay(10);
-  WiFi.hostname("chrono");
-  WiFi.mode(WIFI_STA);
-  WiFi.forceSleepWake();         // workaround per bug init
-  delay(10);
-  
-  WiFi.config(ipChrono, gateway, subnet, dns1); // static IP
-  delay(10);
-  WiFi.begin(ssid, password);   // connessione
-}
+  void setupWifi()
+  {
+    WiFi.persistent(false);
+    WiFi.disconnect(true); // reset SDK config
+    delay(200);
 
-void setupMqtt() {
-  String clientId = String(mqttId) + String(random(0xffff), HEX);
-  delay(10);
+    WiFi.setOutputPower(14); // riduce assorbimento
+    WiFi.mode(WIFI_OFF);     // spegne per forzare stato pulito
+    delay(10);
+    WiFi.hostname("chrono");
+    WiFi.mode(WIFI_STA);
+    WiFi.forceSleepWake(); // workaround per bug init
+    delay(10);
 
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-  delay(100);
-
-  uint32_t start = millis();
-  while (!client.connected()) {
-    if (millis() - start > 5000) {
-      mqttOK = 1; // flag di errore
-      return;
-    }
-    client.connect(clientId.c_str(), mqttUser, mqttPass);
-    delay(250);
+    WiFi.config(ipChrono, gateway, subnet, dns1); // static IP
+    delay(10);
+    WiFi.begin(ssid, password); // connessione
   }
 
-  mqttOK = 0; // ok
-  delay(50);
-}
+  void setupMqtt()
+  {
+    String clientId = String(mqttId) + String(random(0xffff), HEX);
+    delay(10);
 
-  bool connectWifi() {
+    client.setServer(mqtt_server, mqtt_port);
+    client.setCallback(callback);
+    delay(100);
+
     uint32_t start = millis();
-    while (WiFi.status() != WL_CONNECTED) {
-      if (millis() - start > 5000) return false; // timeout
+    while (!client.connected())
+    {
+      if (millis() - start > 5000)
+      {
+        mqttOK = 1; // flag di errore
+        return;
+      }
+      client.connect(clientId.c_str(), mqttUser, mqttPass);
       delay(250);
     }
-    delay(100);
+
+    mqttOK = 0; // ok
+    delay(50);
+  }
+  void randomDelayAtBoot()
+  {
+
+    // Genera un ritardo unico per ogni ESP basato sulla sua MAC
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    // Usa gli ultimi 2 byte del MAC per creare un ritardo da 0 a 10 secondi
+    unsigned long delayMs = ((mac[4] + mac[5]) % 100) * 100; // 0-9900ms
+
+    // Serial.printf("Ritardo connessione: %lu ms (MAC: %02X:%02X)\n",
+    //               delayMs, mac[4], mac[5]);
+
+    delay(delayMs);
+  }
+
+  bool connectWifi()
+  {
+    uint32_t start = millis();
+    while (WiFi.status() != WL_CONNECTED)
+    {
+      if (millis() - start > 7000) return false; // timeout
+      
+      delay(250);
+    }
+    
     return true;
   }
-  void reconnect() {
+  void reconnect()
+  {
     delay(10);
     client.publish(logTopic, "Crono connesso");
     delay(10);
-    
+
     client.subscribe(systemTopic);
     delay(10);
     client.subscribe(casaSensTopic);

@@ -70,7 +70,7 @@ void setup() {
   reconnect();
  // if(mqttOK){blinkLed(3);}
   DS18B20.begin();
-  delay(10);
+  delay(100);
 
   nex_routines();
   
@@ -417,8 +417,6 @@ void nex_routines(){
   Nday.setText("");
   NcrRis.attachPush(Nrisc_onPushCallback);
   NcrAcq.attachPush(Nwater_onPushCallback);
-  Nb_up.attachPush(Nb_upPushCallback);
-  Nb_down.attachPush(Nb_downPushCallback);
   //update_buttons();
   sendCommand("sleep=0");
   }

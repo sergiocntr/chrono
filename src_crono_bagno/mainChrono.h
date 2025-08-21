@@ -16,7 +16,7 @@
 #include "SD.h"               //package builtin configuration file
 #include "Nextion.h"
 #include "NexxFloat.h"
-const uint16_t versione = 2;
+const uint16_t versione = 4;
 uint8_t db_array_value[4] = {0};  //ris 1 acqua 2 alarm 3
 //char buffer[15]={0};
 boolean AlarmOn = false; // ALLARME ACQUA IN SPEGNIMENTO

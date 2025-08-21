@@ -53,7 +53,7 @@ namespace nexchr
 
     Tende tendeTargets[] = {TAPPA_SALOTTO, TAPPA_LEO, TAPPA_CAMERA};
 
-    mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda,80);
+    mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda, 80);
   }
 
   void Nb_downPushCallback(void *ptr)
@@ -63,8 +63,8 @@ namespace nexchr
 
     comandoTenda = CHIUDI; // Imposta il comando attuale
                            // Add values in the document
-    
-  mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda,0);
+
+    mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda, 0);
   }
 
   void Nwater_onPushCallback(void *ptr)
@@ -94,9 +94,11 @@ namespace nexchr
       mqttWifi::publish(teleTopic, "spegni");
     }
   }
-  void nex_routines()
+  bool nex_routines()
   {
-    nexInit();
+    bool initNextion = nexInit();
+   // if (!initNextion)
+    //  return false;
     delay(10);
     sendCommand("dim=20");
     Nset_temp.setText("");
@@ -116,5 +118,6 @@ namespace nexchr
     update_buttons();
     sendCommand("sleep=0");
     delay(10);
+    return true;
   }
 }
