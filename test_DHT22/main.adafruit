@@ -60,7 +60,7 @@ void setup() {
 
 void loop() {
   // Delay between measurements.
-  delay(delayMS);
+  delay(000);
   // Get temperature event and print its value.
   sensors_event_t event;
   dht.temperature().getEvent(&event);

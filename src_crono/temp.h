@@ -4,7 +4,7 @@
 #include <DHT_U.h>
 namespace tempDHT
 {
-#define DHTPIN D4     // Digital pin connected to the DHT sensor
+#define DHTPIN 2     // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT22 // DHT 22 (AM2302)
   uint32_t delayMS;
   DHT_Unified dht(DHTPIN, DHTTYPE);

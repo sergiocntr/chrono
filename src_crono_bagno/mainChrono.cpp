@@ -144,6 +144,7 @@ void getLocalTemp(){
   if(temp == 85.0 || temp == (-127.0)){temp=22.22;}
     //temp*=100;
     temp = roundf(temp * 100) / 100;
+    temp -=2;
   delay(10);
   StaticJsonBuffer<256> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();

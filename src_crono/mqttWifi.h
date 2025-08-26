@@ -45,7 +45,12 @@ namespace mqttWifi
         delay(100);        // Tempo per inviare il pacchetto
       }
     }
-    ESP.deepSleep(300e6); // Spegne tutto automaticamente
+    WiFi.setSleepMode(WIFI_LIGHT_SLEEP);
+    WiFi.mode(WIFI_OFF); // energy saving mode if local WIFI isn't connected
+    
+    WiFi.forceSleepBegin();
+    delay(300000);
+    ESP.reset();
   }
 
   void sendData()
@@ -321,6 +326,7 @@ namespace mqttWifi
     WiFi.config(ipChrono, gateway, subnet, dns1); // static IP
     delay(10);
     WiFi.begin(ssid, password); // connessione
+     delay(100);
   }
 
   void setupMqtt()
@@ -368,14 +374,15 @@ namespace mqttWifi
     uint32_t start = millis();
     while (WiFi.status() != WL_CONNECTED)
     {
-      if (millis() - start > 7000) return false; // timeout
-      
+      if (millis() - start > 7000)
+        return false; // timeout
+
       delay(250);
     }
-    
+
     return true;
   }
-  void reconnect()
+  bool reconnect()
   {
     delay(10);
     client.publish(logTopic, "Crono connesso");
@@ -395,5 +402,6 @@ namespace mqttWifi
     delay(10);
     mqttOK = client.subscribe(eneValTopic);
     client.loop(); // importante per completare handshake
+    return mqttOK;
   }
 }

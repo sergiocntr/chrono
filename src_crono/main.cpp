@@ -5,8 +5,10 @@
 //  }
 void blinkLed(uint8_t volte)
 {
+  return;
   for (uint8_t i = 0; i < volte; i++)
   {
+    
     digitalWrite(LED_BUILTIN, LOW);
     delay(250);
     digitalWrite(LED_BUILTIN, HIGH);
@@ -57,17 +59,27 @@ void irRoutine()
 
 void setup()
 {
-  delay(1000); // inizializzazione generale
+  delay(2000); // inizializzazione generale
+  //pinMode(LED_BUILTIN, OUTPUT);
+  //digitalWrite(LED_BUILTIN, HIGH);
   Serial.begin(9600);
   mqttWifi::randomDelayAtBoot();
   mqttWifi::setupWifi(); // prepara e chiama WiFi.begin
   if (!mqttWifi::connectWifi())
-  {                           // attende connessione
+  { // attende connessione
+    DEBUG_PRINT("no connessione wifi");
     mqttWifi::adessoDormo(1); // entra in sleep se fallisce
   }
+  blinkLed(2);
 
   mqttWifi::setupMqtt(); // setServer, setCallback, connect MQTT
   mqttWifi::reconnect(); // publish iniziale + subscribe
+  if (!mqttWifi::reconnect())
+  { // attende connessione MQTT
+    DEBUG_PRINT("no connessione MQTT");
+    mqttWifi::adessoDormo(1); // entra in sleep se fallisce
+  }
+  blinkLed(3);
 
   irrecv.enableIRIn();      // IR
   wifi_initiate = millis(); // timestamp
@@ -78,9 +90,10 @@ void setup()
     mqttWifi::adessoDormo(8); // entra in sleep se fallisce
 
   }
-
+   blinkLed(4);
   tempDHT::setupTemp();    // init DHT
   tempDHT::getLocalTemp(); // lettura iniziale
+   blinkLed(5);
 }
 
 void loop()
@@ -91,9 +104,9 @@ void loop()
   {
     wifi_initiate = millis();
     if (!mqttWifi::connectWifi())
-  {                           // attende connessione
-    mqttWifi::adessoDormo(8); // entra in sleep se fallisce
-  }
+    {                           // attende connessione
+      mqttWifi::adessoDormo(8); // entra in sleep se fallisce
+    }
     tempDHT::setupTemp();
     smartDelay(500);
     tempDHT::getLocalTemp();

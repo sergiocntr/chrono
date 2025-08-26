@@ -97,8 +97,8 @@ namespace nexchr
   bool nex_routines()
   {
     bool initNextion = nexInit();
-   // if (!initNextion)
-    //  return false;
+    //if (!initNextion)
+     // return false;
     delay(10);
     sendCommand("dim=20");
     Nset_temp.setText("");
