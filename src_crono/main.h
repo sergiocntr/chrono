@@ -1,7 +1,32 @@
 #include <Arduino.h>
-
-#include <ESP8266WiFi.h>
+// Include condizionali basati sulla piattaforma
+#ifdef ESP8266_BUILD
+  #include <ESP8266WiFi.h>
+  #include <ESP8266httpUpdate.h>
+  #include <IRremoteESP8266.h>
+  #include <IRrecv.h>
+  #include <IRutils.h>
+  
+  //ESP8266HTTPUpdateServer httpUpdater;
+  #define nextion Serial
+  
+#elif ESP32_BUILD
+  #include <WiFi.h>
+  #include <ESPmDNS.h>
+  #include <HTTPUpdateServer.h>
+  #include <WebServer.h>
+  #include <IRremote.h>
+  
+  WebServer server(80);
+  HTTPUpdateServer httpUpdater;
+  #define nextion Serial1
+  
+#endif
+#include <DHT.h>
+#include <ArduinoJson.h>
+#include <PubSubClient.h>
 #include <Int64String.h>
+
 #include <impostazioni.h>
 #include "nex.h"
 #include "mqttWifi.h"

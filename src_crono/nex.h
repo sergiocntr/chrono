@@ -1,11 +1,11 @@
 #pragma once
-#include <impostazioni.h>
+// #include <impostazioni.h>
 #include "topic.h"
 #include "FS.h"
 #include "SPI.h" //package builtin configuration file
 #include "SD.h"  //package builtin configuration file
 #include "mqttWifi.h"
-#include <ArduinoJson.h>
+// #include <ArduinoJson.h>
 namespace nexchr
 {
 

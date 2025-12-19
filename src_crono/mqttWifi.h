@@ -1,10 +1,4 @@
 #pragma once
-#include <impostazioni.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266httpUpdate.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
 #include "myIP.h"
 #include "password.h"
 #include "topic.h"
@@ -19,8 +13,15 @@ namespace mqttWifi
   void adessoDormo(uint8_t mode);
   void publish(const char *topic, const char *message)
   {
-    mqttOK = client.publish(topic, message, strlen(message));
-
+    for (size_t i = 0; i < 4; i++)
+    {
+      delay(10);
+      client.loop();
+      mqttOK = client.publish(topic, message, strlen(message));
+      if(mqttOK) continue;
+      
+    }
+     
     if (!mqttOK)
       adessoDormo(8);
   }
@@ -71,9 +72,6 @@ namespace mqttWifi
     myTemp.h = 0;
     myTemp.t = 0;
     delay(10);
-
-    if (!mqttOK)
-      adessoDormo(8);
   }
 
   void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int percentuale)

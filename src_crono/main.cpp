@@ -62,7 +62,7 @@ void setup()
   delay(2000); // inizializzazione generale
   //pinMode(LED_BUILTIN, OUTPUT);
   //digitalWrite(LED_BUILTIN, HIGH);
-  Serial.begin(9600);
+  nextion.begin(9600);
   mqttWifi::randomDelayAtBoot();
   mqttWifi::setupWifi(); // prepara e chiama WiFi.begin
   if (!mqttWifi::connectWifi())
