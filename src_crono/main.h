@@ -3,26 +3,24 @@
 #ifdef ESP8266_BUILD
   #include <ESP8266WiFi.h>
   #include <ESP8266httpUpdate.h>
-  #include <IRremoteESP8266.h>
-  #include <IRrecv.h>
-  #include <IRutils.h>
+
   
   //ESP8266HTTPUpdateServer httpUpdater;
   #define nextion Serial
   
 #elif ESP32_BUILD
-  #include <WiFi.h>
-  #include <ESPmDNS.h>
-  #include <HTTPUpdateServer.h>
-  #include <WebServer.h>
-  #include <IRremote.h>
-  
-  WebServer server(80);
-  HTTPUpdateServer httpUpdater;
-  #define nextion Serial1
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <HTTPUpdate.h>
+//#define nextion Serial1
+
   
 #endif
-#include <DHT.h>
+#include <IRremoteESP8266.h>
+#include <IRrecv.h>
+#include <IRutils.h>
+#include "DHTesp.h" // Click here to get the library: http://librarymanager/All#DHTesp
+#include <Ticker.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <Int64String.h>

@@ -1,20 +1,4 @@
 #include <main.h>
-// char buffer[15]={0};
-//  void pl(uint8_t num){
-//    Serial.println(num);
-//  }
-void blinkLed(uint8_t volte)
-{
-  return;
-  for (uint8_t i = 0; i < volte; i++)
-  {
-    
-    digitalWrite(LED_BUILTIN, LOW);
-    delay(250);
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(250);
-  }
-}
 void smartDelay(unsigned long mytime)
 {
   uint32_t adesso = millis();
@@ -59,57 +43,36 @@ void irRoutine()
 
 void setup()
 {
-  delay(2000); // inizializzazione generale
-  //pinMode(LED_BUILTIN, OUTPUT);
-  //digitalWrite(LED_BUILTIN, HIGH);
-  nextion.begin(9600);
-  mqttWifi::randomDelayAtBoot();
-  mqttWifi::setupWifi(); // prepara e chiama WiFi.begin
-  if (!mqttWifi::connectWifi())
-  { // attende connessione
-    DEBUG_PRINT("no connessione wifi");
-    mqttWifi::adessoDormo(1); // entra in sleep se fallisce
-  }
-  blinkLed(2);
+  //delay(2000); // inizializzazione generale
+  // pinMode(LED_BUILTIN, OUTPUT);
+  // digitalWrite(LED_BUILTIN, HIGH);
+  Serial.begin(115200);
+  delay(2500);
+  Serial.println("Start");
 
-  mqttWifi::setupMqtt(); // setServer, setCallback, connect MQTT
-  mqttWifi::reconnect(); // publish iniziale + subscribe
-  if (!mqttWifi::reconnect())
-  { // attende connessione MQTT
-    DEBUG_PRINT("no connessione MQTT");
-    mqttWifi::adessoDormo(1); // entra in sleep se fallisce
-  }
-  blinkLed(3);
+  mqttWifi::setupCompleto();
 
-  irrecv.enableIRIn();      // IR
-  wifi_initiate = millis(); // timestamp
+  Serial.println("Setup wifi OK");
+
+ // irrecv.enableIRIn();      // IR
+ // wifi_initiate = millis(); // timestamp
 
   bool nexTest = nexchr::nex_routines(); // init Nextion
-  if (!nexTest){
+  if (!nexTest)
+  {
+    Serial.println("Nextion Fail");
     mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
     mqttWifi::adessoDormo(8); // entra in sleep se fallisce
-
   }
-   blinkLed(4);
-  tempDHT::setupTemp();    // init DHT
-  tempDHT::getLocalTemp(); // lettura iniziale
-   blinkLed(5);
+  Serial.println("Nextion OK");
+  tempDHT::setupTemp(); // setup DHT22 e lancio tasker per letture ogni 4 minuti
+  Serial.println("End of Setup");
 }
 
 void loop()
 {
   irRoutine();
-  yield();
-  if ((millis() - wifi_initiate) > wifi_check_time)
-  {
-    wifi_initiate = millis();
-    if (!mqttWifi::connectWifi())
-    {                           // attende connessione
-      mqttWifi::adessoDormo(8); // entra in sleep se fallisce
-    }
-    tempDHT::setupTemp();
-    smartDelay(500);
-    tempDHT::getLocalTemp();
-  }
+
+  mqttWifi::gestisciConnessione();
   smartDelay(1000);
 }
