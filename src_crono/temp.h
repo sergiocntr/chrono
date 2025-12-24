@@ -64,14 +64,14 @@ namespace tempDHT {
     myTemp.h += newValues.humidity;
     volteTemp++;
 
-    // Calcolo Comfort Bitmask (Risparmio dati)
-    // Bit 0: OK, Bit 1: Too Hot, Bit 2: Too Cold, Bit 3: Too Dry, Bit 4: Too Humid
-    ComfortState cf;
-    dht.getComfortRatio(cf, newValues.temperature, newValues.humidity);
-    comfortMask = (1 << (uint8_t)cf); 
-
     if (volteTemp >= 4) {
+      ComfortState cf;
+      dht.getComfortRatio(cf, newValues.temperature, newValues.humidity);
+      comfortMask = (1 << (uint8_t)cf); 
+      // Calcolo Comfort Bitmask (Risparmio dati)
+      // Bit 0: OK, Bit 1: Too Hot, Bit 2: Too Cold, Bit 3: Too Dry, Bit 4: Too Humid
       // Qui mqttWifi::sendData() leggerà myTemp.t/h e comfortMask
+      myTemp.confort = comfortMask;
       mqttWifi::sendData(); 
       volteTemp = 0;
       // Nota: ricordati di azzerare myTemp.t e .h dentro sendData() 

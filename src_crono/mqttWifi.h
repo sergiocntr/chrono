@@ -2,7 +2,7 @@
 #include "myIP.h"
 #include "password.h"
 #include "topic.h"
-
+#include "mqttWifiMessages.h" 
 WiFiClient mywifi;
 WiFiClient c;
 
@@ -10,7 +10,7 @@ namespace mqttWifi
 {
   PubSubClient client(c);
 
-  // Stati della connessione
+ // ========== VARIABILI DI STATO ==========
   bool mqttConnesso = false;
   bool inFaseRiposo = false;
   unsigned long timerSenzaConnessione = 0;
@@ -19,41 +19,53 @@ namespace mqttWifi
   const unsigned long TIMEOUT_MQTT = 5000;
 
   // Forward declarations
-  void adessoDormo(uint8_t mode);
+  void adessoDormo(uint8_t mode, MotivoSpegnimento motivo);
   bool reconnectMqtt();
 
-  // ========== GESTIONE PUBBLICAZIONE ==========
-  bool publish(const char *topic, const char *message)
+  // ========== FUNZIONE LOG MOTIVO ==========
+  void logMotivoSpegnimento(MotivoSpegnimento motivo)
   {
-    if (!client.connected())
+    Serial.print("[SLEEP] Motivo: ");
+    switch (motivo)
     {
-      return false;
+    case PUBLISH_FALLITO:
+      Serial.println("PUBLISH FALLITO dopo 3 tentativi");
+      break;
+    case COMANDO_SYSTEM_TOPIC:
+      Serial.println("COMANDO via systemTopic (payload '0')");
+      break;
+    case WIFI_TIMEOUT_GESTIONE:
+      Serial.println("WiFi TIMEOUT in gestisciConnessione()");
+      break;
+    case MQTT_TIMEOUT_GESTIONE:
+      Serial.println("MQTT TIMEOUT in gestisciConnessione()");
+      break;
+    case WIFI_FALLITO_SETUP:
+      Serial.println("WiFi FALLITO durante setupCompleto()");
+      break;
+    case MQTT_FALLITO_RISVEGLIO:
+      Serial.println("MQTT FALLITO durante risveglio");
+      break;
+    case WIFI_FALLITO_RISVEGLIO:
+      Serial.println("WiFi FALLITO durante risveglio");
+      break;
+    default:
+      Serial.println("SCONOSCIUTO");
+      break;
     }
-
-    // Tentativi multipli con delay ridotto
-    for (size_t tentativo = 0; tentativo < 3; tentativo++)
-    {
-      client.loop(); // Mantieni connessione attiva
-      
-      if (client.publish(topic, message, strlen(message)))
-      {
-        return true; // Successo
-      }
-      
-      delay(50); // Breve pausa tra tentativi
-    }
-
-    // Dopo 3 tentativi falliti, entra in modalità riposo
-    adessoDormo(8);
-    return false;
+    Serial.flush(); // Assicura che venga scritto prima dello spegnimento
   }
 
   // ========== GESTIONE MODALITÀ RIPOSO ==========
-  void adessoDormo(uint8_t mode)
+  void adessoDormo(uint8_t mode, MotivoSpegnimento motivo)
   {
+    // LOG DEL MOTIVO
+    logMotivoSpegnimento(motivo);
+
     // Spegnimento Nextion (se mode > 0)
     if (mode > 0)
     {
+      Serial.println("[SLEEP] Spegnimento Nextion");
       sendCommand("thup=1");
       sendCommand("sleep=1");
     }
@@ -61,9 +73,11 @@ namespace mqttWifi
     // Disconnessione pulita
     if (client.connected())
     {
+      Serial.println("[SLEEP] Disconnessione MQTT");
       client.disconnect();
     }
     
+    Serial.println("[SLEEP] Spegnimento WiFi");
     WiFi.disconnect(true); // true = cancella credenziali salvate
     WiFi.mode(WIFI_OFF);
 
@@ -71,227 +85,15 @@ namespace mqttWifi
     inFaseRiposo = true;
     mqttConnesso = false;
     timerSenzaConnessione = millis();
-  }
-
-  // ========== INVIO DATI ==========
-  void sendData()
-  {
-    StaticJsonBuffer<256> jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
     
-    root["topic"] = "SalChr";
-    root["hum"] = myTemp.h / 4;
-    root["temp"] = myTemp.t / 4;
-    
-    char JSONmessageBuffer[256];
-    root.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-    
-    if (publish(casaSensTopic, JSONmessageBuffer))
-    {
-      // Reset solo se pubblicazione riuscita
-      myTemp.h = 0;
-      myTemp.t = 0;
-    }
-  }
-
-  void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int percentuale)
-  {
-    StaticJsonBuffer<256> jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
-
-    root["comando"] = (int)comando;
-
-    if (comando == 2) // APRI PARZIALE
-    {
-      root["percentuale"] = percentuale;
-    }
-
-    JsonArray &tendeArray = root.createNestedArray("tende");
-    for (size_t i = 0; i < numTende; i++)
-    {
-      tendeArray.add((int)tendeTargets[i]);
-    }
-
-    char JSONmessageBuffer[256];
-    root.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-
-    publish(tendeTuya, JSONmessageBuffer);
-  }
-
-  // ========== AGGIORNAMENTO FIRMWARE ==========
-  void checkForUpdates()
-  {
-    String fwURL = String(fwUrlBase);
-    fwURL.concat(mqttId);
-    String fwVersionURL = fwURL + "/version.php";
-    String fwImageURL = fwURL + "/firmware.bin";
-
-    WiFiClient myLocalConn;
-    HTTPClient httpClient;
-    httpClient.begin(myLocalConn, fwVersionURL);
-    
-    int httpCode = httpClient.GET();
-    if (httpCode == 200)
-    {
-      String newFWVersion = httpClient.getString();
-      int newVersion = newFWVersion.toInt();
-      Ntcurr.setText(newFWVersion.c_str());
-      delay(1000);
-
-      if (newVersion > versione)
-      {
-        client.disconnect();
-        delay(1000);
-        
-        t_httpUpdate_return ret = httpUpdate.update(myLocalConn, fwImageURL);
-        
-        switch (ret)
-        {
-        case HTTP_UPDATE_FAILED:
-          Ntcurr.setText("U_F");
-          break;
-        case HTTP_UPDATE_NO_UPDATES:
-          Ntcurr.setText("N_U");
-          break;
-        case HTTP_UPDATE_OK:
-          // Riavvio automatico
-          break;
-        }
-      }
-      else
-      {
-        Ntcurr.setText("S_V");
-      }
-    }
-    else
-    {
-      Ntcurr.setText("A_E");
-    }
-    
-    httpClient.end();
-    myLocalConn.stop();
-  }
-
-  // ========== CALLBACK MQTT ==========
-  void callback(char *topic, byte *payload, unsigned int length)
-  {
-#ifdef DEBUGMIO
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
-    for (int i = 0; i < length; i++)
-    {
-      Serial.print((char)payload[i]);
-    }
-    Serial.println();
-#else
-    delay(20);
-    bool handled = false;
-
-    // Gestione comandi di sistema
-    if (strcmp(topic, systemTopic) == 0)
-    {
-      if (char(payload[0]) == '0')
-      {
-        handled = true;
-        adessoDormo(8);
-        return; // Esci immediatamente dopo dormire
-      }
-    }
-    else if (strcmp(topic, updateTopic) == 0)
-    {
-      if (char(payload[0]) == '0')
-      {
-        handled = true;
-        Ntcurr.setText("UPMQ");
-        checkForUpdates();
-        return;
-      }
-    }
-    else if (strcmp(topic, acquaTopic) == 0)
-    {
-      handled = true;
-      db_array_value[2] = (char(payload[0]) == '0') ? 0 : 1;
-      Nwater_on.setPic(db_array_value[2]);
-    }
-    else if (strcmp(topic, riscaldaTopic) == 0)
-    {
-      handled = true;
-      db_array_value[1] = (char(payload[0]) == '0') ? 0 : 1;
-      Nrisc_on.setPic(db_array_value[1]);
-    }
-
-    if (handled)
-    {
-      return;
-    }
-
-    // Parsing JSON per messaggi complessi
-    StaticJsonBuffer<512> jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject(payload);
-    
-    if (!root.success())
-    {
-      return; // JSON non valido
-    }
-
-    String msg_Topic = root["topic"];
-
-    if (strcmp(topic, systemTopic) == 0)
-    {
-      if (msg_Topic == "UpTime")
-      {
-        const char *Nex_Time = root["hours"];
-        const char *Nex_Day = root["Day"];
-        Ncurr_hour.setText(Nex_Time);
-        Nday.setText(Nex_Day);
-      }
-    }
-    else if (strcmp(topic, casaSensTopic) == 0)
-    {
-      if (msg_Topic == "DHTCamera")
-      {
-        const char *Nex_inHm = root["Hum"];
-        const char *Nex_inTemp = root["Temp"];
-        Ntcurr.setText(Nex_inTemp);
-        Nin_hum.setText(Nex_inHm);
-      }
-    }
-    else if (strcmp(topic, extSensTopic) == 0)
-    {
-      if (msg_Topic == "Caldaia")
-      {
-        const char *Nex_wt = root["acqua"];
-        Ncurr_water_temp.setText(Nex_wt);
-      }
-      else if (msg_Topic == "Terrazza")
-      {
-        const char *Nex_outHm = root["Hum"];
-        const char *Nex_outTemp = root["Temp"];
-        Nout_temp.setText(Nex_outTemp);
-        Nout_hum.setText(Nex_outHm);
-      }
-    }
-    else if (strcmp(topic, eneValTopic) == 0)
-    {
-      if (msg_Topic == "EneMain")
-      {
-        const char *Nex_eneVal = root["e"];
-        Nset_temp.setText(Nex_eneVal);
-      }
-    }
-
-    delay(50);
-    if (client.connected())
-    {
-      client.loop();
-    }
-#endif
+    Serial.printf("[SLEEP] Risveglio previsto tra %lu ms\n", INTERVALLO_RIPROVA);
+    Serial.println("========================================");
   }
 
   // ========== SETUP INIZIALE ==========
   void setupWifi()
   {
+    Serial.println("[SETUP] Configurazione WiFi...");
     WiFi.mode(WIFI_STA);
     WiFi.setHostname("chrono");
     WiFi.config(ipChrono, gateway, subnet, dns1);
@@ -303,6 +105,7 @@ namespace mqttWifi
     uint8_t mac[6];
     WiFi.macAddress(mac);
     unsigned long delayMs = ((mac[4] + mac[5]) % 100) * 100; // 0-9900ms
+    Serial.printf("[SETUP] Delay casuale: %lu ms\n", delayMs);
     delay(delayMs);
   }
 
@@ -311,9 +114,11 @@ namespace mqttWifi
   {
     if (WiFi.status() == WL_CONNECTED)
     {
+      Serial.println("[WiFi] Già connesso");
       return true;
     }
 
+    Serial.println("[WiFi] Connessione in corso...");
     WiFi.begin(ssid, password);
     uint32_t start = millis();
     
@@ -321,11 +126,16 @@ namespace mqttWifi
     {
       if (millis() - start > TIMEOUT_WIFI)
       {
+        Serial.printf("[WiFi] TIMEOUT dopo %lu ms\n", TIMEOUT_WIFI);
         return false;
       }
       delay(250);
+      Serial.print(".");
     }
 
+    Serial.println("\n[WiFi] Connesso!");
+    Serial.print("[WiFi] IP: ");
+    Serial.println(WiFi.localIP());
     return true;
   }
 
@@ -334,27 +144,34 @@ namespace mqttWifi
   {
     if (client.connected())
     {
+      Serial.println("[MQTT] Già connesso");
       return true;
     }
 
     String clientId = String(mqttId) + String(random(0xffff), HEX);
+    Serial.printf("[MQTT] Connessione come: %s\n", clientId.c_str());
+    
     client.setServer(mqtt_server, mqtt_port);
-    client.setCallback(callback);
+    client.setCallback(callback); // Callback definita in mqttWifiMessages.h
+    client.setBufferSize(512); // Aumenta buffer se necessario
 
     uint32_t start = millis();
     while (!client.connected())
     {
       if (millis() - start > TIMEOUT_MQTT)
       {
+        Serial.printf("[MQTT] TIMEOUT dopo %lu ms\n", TIMEOUT_MQTT);
         return false;
       }
 
       if (client.connect(clientId.c_str(), mqttUser, mqttPass))
       {
+        Serial.println("[MQTT] Connesso!");
         return reconnectMqtt(); // Sottoscrivi ai topic
       }
       
       delay(250);
+      Serial.print(".");
     }
 
     return false;
@@ -365,36 +182,66 @@ namespace mqttWifi
   {
     if (!client.connected())
     {
+      Serial.println("[MQTT] Client non connesso, impossibile sottoscrivere");
       return false;
     }
 
+    Serial.println("[MQTT] Sottoscrizione topic...");
+    
+    // Pubblica messaggio di connessione
     client.publish(logTopic, "Crono connesso");
     delay(10);
 
+    // Sottoscrivi a tutti i topic necessari
     bool success = true;
+    
     success &= client.subscribe(systemTopic);
+    Serial.printf("[MQTT] systemTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(casaSensTopic);
+    Serial.printf("[MQTT] casaSensTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(extSensTopic);
+    Serial.printf("[MQTT] extSensTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(acquaTopic);
+    Serial.printf("[MQTT] acquaTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(riscaldaTopic);
+    Serial.printf("[MQTT] riscaldaTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(updateTopic);
+    Serial.printf("[MQTT] updateTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
+    
     success &= client.subscribe(eneValTopic);
+    Serial.printf("[MQTT] eneValTopic: %s\n", success ? "OK" : "FAIL");
     
     client.loop(); // Completa handshake
     
     mqttConnesso = success;
+    
+    if (success)
+    {
+      Serial.println("[MQTT] ✓ Tutte le sottoscrizioni completate");
+    }
+    else
+    {
+      Serial.println("[MQTT] ✗ ERRORE in una o più sottoscrizioni");
+    }
+    
     return success;
   }
 
   // ========== RISVEGLIO DOPO RIPOSO ==========
   void risveglioE_Riconnetti()
   {
+    Serial.println("[RISVEGLIO] Tentativo riconnessione...");
     WiFi.mode(WIFI_STA); // Riabilita WiFi
     
     if (connectWifi())
@@ -407,19 +254,23 @@ namespace mqttWifi
         mqttConnesso = true;
         
         // Riaccendi Nextion
+        Serial.println("[RISVEGLIO] Accensione Nextion");
         sendCommand("sleep=0");
         sendCommand("thup=0");
+        Serial.println("[RISVEGLIO] ✓ Riconnessione completata!");
       }
       else
       {
         // MQTT fallito, torna a dormire
-        adessoDormo(0); // 0 = non rispegnere Nextion
+        Serial.println("[RISVEGLIO] ✗ MQTT fallito");
+        adessoDormo(0, MQTT_FALLITO_RISVEGLIO); // 0 = non rispegnere Nextion
       }
     }
     else
     {
       // WiFi fallito, torna a dormire
-      adessoDormo(0);
+      Serial.println("[RISVEGLIO] ✗ WiFi fallito");
+      adessoDormo(0, WIFI_FALLITO_RISVEGLIO);
     }
   }
 
@@ -440,9 +291,10 @@ namespace mqttWifi
     // Verifica WiFi
     if (WiFi.status() != WL_CONNECTED)
     {
+      Serial.println("[GESTIONE] WiFi disconnesso!");
       if (!connectWifi())
       {
-        adessoDormo(8);
+        adessoDormo(8, WIFI_TIMEOUT_GESTIONE);
         return;
       }
     }
@@ -450,9 +302,10 @@ namespace mqttWifi
     // Verifica MQTT
     if (!client.connected())
     {
+      Serial.println("[GESTIONE] MQTT disconnesso!");
       if (!connectMqtt())
       {
-        adessoDormo(8);
+        adessoDormo(8, MQTT_TIMEOUT_GESTIONE);
         return;
       }
     }
@@ -465,6 +318,10 @@ namespace mqttWifi
   // ========== SETUP COMPLETO (DA CHIAMARE IN setup()) ==========
   void setupCompleto()
   {
+    Serial.println("========================================");
+    Serial.println("[SETUP] Avvio mqttWifi namespace");
+    Serial.println("========================================");
+    
     setupWifi();
     randomDelayAtBoot(); // Evita collisioni all'avvio
     
@@ -474,7 +331,7 @@ namespace mqttWifi
     }
     else
     {
-      adessoDormo(8);
+      adessoDormo(8, WIFI_FALLITO_SETUP);
     }
   }
 

@@ -6,7 +6,7 @@ void smartDelay(unsigned long mytime)
   {
     mqttWifi::client.loop();
     nexLoop(nex_listen_list);
-    delay(10);
+    delay(200);
   }
 }
 
@@ -23,7 +23,8 @@ void irRoutine()
     case spegni:
       mqttWifi::publish(teleTopic, "spegni");
       delay(10);
-      mqttWifi::adessoDormo(8);
+      Serial.println("[irRoutine] SHUTDOWN_FROM_MQTT!");
+      mqttWifi::adessoDormo(8, MotivoSpegnimento::SHUTDOWN_FROM_MQTT);
       break;
     case acquaON:
       mqttWifi::publish(acquaTopic, "1");
@@ -43,9 +44,24 @@ void irRoutine()
 
 void setup()
 {
-  //delay(2000); // inizializzazione generale
-  // pinMode(LED_BUILTIN, OUTPUT);
-  // digitalWrite(LED_BUILTIN, HIGH);
+  delay(2000); // inizializzazione generale
+  // ===== DISABILITAZIONE BLUETOOTH COMPLETA =====
+  
+  // 1. Ferma il Bluetooth Classic
+  btStop();
+  
+  // 2. Deinizializza il controller (livello più basso)
+  #ifdef CONFIG_BT_ENABLED
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED) {
+      esp_bt_controller_disable();
+    }
+    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED) {
+      esp_bt_controller_deinit();
+    }
+    esp_bluedroid_disable();
+    esp_bluedroid_deinit();
+  #endif
+
   Serial.begin(115200);
   delay(2500);
   Serial.println("Start");
@@ -60,9 +76,9 @@ void setup()
   bool nexTest = nexchr::nex_routines(); // init Nextion
   if (!nexTest)
   {
-    Serial.println("Nextion Fail");
+    Serial.println("[SEUP] NEXTION Init faled!");
     mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
-    mqttWifi::adessoDormo(8); // entra in sleep se fallisce
+    mqttWifi::adessoDormo(8, MotivoSpegnimento::NEXTION_SETUP_FAILED); // entra in sleep se fallisce
   }
   Serial.println("Nextion OK");
   tempDHT::setupTemp(); // setup DHT22 e lancio tasker per letture ogni 4 minuti
@@ -71,7 +87,7 @@ void setup()
 
 void loop()
 {
-  irRoutine();
+  //irRoutine();
 
   mqttWifi::gestisciConnessione();
   smartDelay(1000);

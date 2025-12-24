@@ -12,6 +12,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
+#include "esp_bt.h"
+#include "esp_bt_main.h"
 //#define nextion Serial1
 
   
@@ -28,6 +30,7 @@
 #include <impostazioni.h>
 #include "nex.h"
 #include "mqttWifi.h"
+#include "mqttWifiMessages.h" 
 #include "irnextion.h"
 #include "temp.h"
 uint32_t wifi_initiate =0;

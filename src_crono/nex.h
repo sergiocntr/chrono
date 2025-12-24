@@ -5,6 +5,7 @@
 #include "SPI.h" //package builtin configuration file
 #include "SD.h"  //package builtin configuration file
 #include "mqttWifi.h"
+#include "mqttWifiMessages.h" 
 // #include <ArduinoJson.h>
 namespace nexchr
 {
