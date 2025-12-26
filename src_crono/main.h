@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <impostazioni.h>
 // Include condizionali basati sulla piattaforma
 #ifdef ESP8266_BUILD
   #include <ESP8266WiFi.h>
@@ -27,7 +28,7 @@
 #include <PubSubClient.h>
 #include <Int64String.h>
 
-#include <impostazioni.h>
+
 #include "nex.h"
 #include "mqttWifi.h"
 #include "mqttWifiMessages.h" 

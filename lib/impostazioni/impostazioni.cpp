@@ -1,43 +1,15 @@
-#pragma once
-#include <Arduino.h>
+#include "impostazioni.h"
 #include "Nextion.h"
-//#define versione
-const char* mqttId="Chrono";
-struct tempStr{
-  float t;
-  float h;
-  uint8_t confort;
-};
 tempStr myTemp;
+ComandoTende comandoTenda;
+#ifdef ESP8266_BUILD
+  const char* mqttId ="Chrono";
+  
+#elif ESP32_BUILD
+  const char* mqttId ="Chrono32";
+ 
+#endif
 
-enum Tende {
-    TENDA_SALOTTO,    // 0
-    TENDA_LEO,        // 1
-    TAPPA_SALOTTO,   // 2
-    TAPPA_LEO,        // 3 
-    TAPPA_CAMERA      // 4
-};
-
-// Enum per i comandi delle tende
-enum ComandoTende {
-    CHIUDI,        // 0
-    APRI,          // 1
-    APRI_PARZIALE  // 2
-};ComandoTende comandoTenda;
-
-// ========== ENUM MOTIVI SPEGNIMENTO ==========
-  enum MotivoSpegnimento
-  {
-    PUBLISH_FALLITO = 0,
-    COMANDO_SYSTEM_TOPIC = 1,
-    WIFI_TIMEOUT_GESTIONE = 2,
-    MQTT_TIMEOUT_GESTIONE = 3,
-    WIFI_FALLITO_SETUP = 4,
-    MQTT_FALLITO_RISVEGLIO = 5,
-    WIFI_FALLITO_RISVEGLIO = 6,
-    NEXTION_SETUP_FAILED = 7,
-    SHUTDOWN_FROM_MQTT = 8  
-  };
 
 uint8_t db_array_value[4] = {0};
 NexText Nset_temp         = NexText(0, 2, "Nset_temp");
