@@ -1,5 +1,5 @@
 #include "mqttWifi.h"
-#include "mqttWifiMessages.h" 
+#include "mqttWifiMessages.h"
 WiFiClient mywifi;
 WiFiClient c;
 
@@ -7,7 +7,7 @@ namespace mqttWifi
 {
   PubSubClient client(c);
 
- // ========== VARIABILI DI STATO ==========
+  // ========== VARIABILI DI STATO ==========
   bool mqttConnesso = false;
   bool inFaseRiposo = false;
   unsigned long timerSenzaConnessione = 0;
@@ -74,7 +74,7 @@ namespace mqttWifi
       Serial.println("[SLEEP] Disconnessione MQTT");
       client.disconnect();
     }
-    
+
     Serial.println("[SLEEP] Spegnimento WiFi");
     WiFi.disconnect(true); // true = cancella credenziali salvate
     WiFi.mode(WIFI_OFF);
@@ -83,7 +83,7 @@ namespace mqttWifi
     inFaseRiposo = true;
     mqttConnesso = false;
     timerSenzaConnessione = millis();
-    
+
     Serial.printf("[SLEEP] Risveglio previsto tra %lu ms\n", INTERVALLO_RIPROVA);
     Serial.println("========================================");
   }
@@ -92,10 +92,18 @@ namespace mqttWifi
   void setupWifi()
   {
     Serial.println("[SETUP] Configurazione WiFi...");
-    WiFi.mode(WIFI_STA);
-    WiFi.setHostname("chrono");
-    WiFi.config(ipChrono, gateway, subnet, dns1);
-    WiFi.setSleep(true); // Modem sleep per risparmio energetico
+   WiFi.disconnect(false,true); 
+  WiFi.persistent(false);
+  WiFi.mode(WIFI_OFF);
+  delay(200);
+  WiFi.mode(WIFI_STA);
+  delay(200);
+  
+  // Configurazione base
+  WiFi.setAutoReconnect(true);
+  WiFi.setSleep(true);
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+  WiFi.config(ipChrono, gateway, subnet, dns1);
   }
 
   void randomDelayAtBoot()
@@ -117,9 +125,11 @@ namespace mqttWifi
     }
 
     Serial.println("[WiFi] Connessione in corso...");
+    WiFi.disconnect();
+    delay(500);
     WiFi.begin(ssid, password);
     uint32_t start = millis();
-    
+
     while (WiFi.status() != WL_CONNECTED)
     {
       if (millis() - start > TIMEOUT_WIFI)
@@ -149,10 +159,11 @@ namespace mqttWifi
 
     String clientId = String(mqttId) + String(random(0xffff), HEX);
     Serial.printf("[MQTT] Connessione come: %s\n", clientId.c_str());
-    
+
     client.setServer(mqtt_server, mqtt_port);
     client.setCallback(callback); // Callback definita in mqttWifiMessages.h
-    client.setBufferSize(512); // Aumenta buffer se necessario
+    client.setBufferSize(512);    // Aumenta buffer se necessario
+ 
 
     uint32_t start = millis();
     while (!client.connected())
@@ -186,45 +197,45 @@ namespace mqttWifi
     }
 
     Serial.println("[MQTT] Sottoscrizione topic...");
-    
+
     // Pubblica messaggio di connessione
     client.publish(logTopic, "Crono connesso");
     delay(10);
 
     // Sottoscrivi a tutti i topic necessari
     bool success = true;
-    
+
     success &= client.subscribe(systemTopic);
     Serial.printf("[MQTT] systemTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(casaSensTopic);
     Serial.printf("[MQTT] casaSensTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(extSensTopic);
     Serial.printf("[MQTT] extSensTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(acquaTopic);
     Serial.printf("[MQTT] acquaTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(riscaldaTopic);
     Serial.printf("[MQTT] riscaldaTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(updateTopic);
     Serial.printf("[MQTT] updateTopic: %s\n", success ? "OK" : "FAIL");
     delay(10);
-    
+
     success &= client.subscribe(eneValTopic);
     Serial.printf("[MQTT] eneValTopic: %s\n", success ? "OK" : "FAIL");
-    
+
     client.loop(); // Completa handshake
-    
+
     mqttConnesso = success;
-    
+
     if (success)
     {
       Serial.println("[MQTT] ✓ Tutte le sottoscrizioni completate");
@@ -233,7 +244,7 @@ namespace mqttWifi
     {
       Serial.println("[MQTT] ✗ ERRORE in una o più sottoscrizioni");
     }
-    
+
     return success;
   }
 
@@ -242,16 +253,16 @@ namespace mqttWifi
   {
     Serial.println("[RISVEGLIO] Tentativo riconnessione...");
     WiFi.mode(WIFI_STA); // Riabilita WiFi
-    
+
     if (connectWifi())
     {
       inFaseRiposo = false;
-      
+
       // Riconnetti MQTT
       if (connectMqtt())
       {
         mqttConnesso = true;
-        
+
         // Riaccendi Nextion
         Serial.println("[RISVEGLIO] Accensione Nextion");
         sendCommand("sleep=0");
@@ -320,10 +331,10 @@ namespace mqttWifi
     Serial.println("========================================");
     Serial.println("[SETUP] Avvio mqttWifi namespace");
     Serial.println("========================================");
-    
+
     setupWifi();
     randomDelayAtBoot(); // Evita collisioni all'avvio
-    
+
     if (connectWifi())
     {
       connectMqtt();

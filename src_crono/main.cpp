@@ -51,15 +51,10 @@ void setup()
   btStop();
   
   // 2. Deinizializza il controller (livello più basso)
-  #ifdef CONFIG_BT_ENABLED
-    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED) {
-      esp_bt_controller_disable();
-    }
-    if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_INITED) {
-      esp_bt_controller_deinit();
-    }
-    esp_bluedroid_disable();
-    esp_bluedroid_deinit();
+  #if CONFIG_BT_ENABLED
+  // Rilascia la memoria BT per il WiFi
+  esp_bt_mem_release(ESP_BT_MODE_BTDM);
+  Serial.println("Bluetooth disabilitato e memoria rilasciata");
   #endif
 
   Serial.begin(115200);
