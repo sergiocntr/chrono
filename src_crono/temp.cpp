@@ -1,50 +1,59 @@
 #include "temp.h"
-namespace tempDHT {
+namespace tempDHT
+{
   // Configurazione Pin e Variabili
-  const int dhtPin= 4;
   DHTesp dht;
-  Ticker tempTicker;
-  TaskHandle_t tempTaskHandle = NULL;
-  void setupTemp() {
-    dht.setup(dhtPin, DHTesp::DHT22);
-    
-    // Creazione del Task (Stack dimensionato per ESP32-C3)
-    xTaskCreate(
-      tempTask,
-      "tempTask",
-      2560,
-      NULL,
-      1,
-      &tempTaskHandle
-    );
-
-    if (tempTaskHandle != NULL) {
-      // Avvia il ticker ogni 240 secondi (ogni 4 minuti e trasmsmione ongi 16 minuti!)
-      tempTicker.attach(240, triggerTask);
+  // Ticker tempTicker;
+  // TaskHandle_t tempTaskHandle = NULL;
+  bool setupTemp()
+  {
+    dht.setup(DHT_PIN, DHTesp::DHT22);
+    logSerialPrintln("DHT error status: " + String(dht.getStatusString()));
+    if (dht.getStatus() != 0)
+    {
+      logSerialPrintln("DHT error status: " + String(dht.getStatusString()));
+      return false;
     }
+    return true;
+    // // Creazione del Task (Stack dimensionato per ESP32-C3)
+    // xTaskCreate(
+    //   tempTask,
+    //   "tempTask",
+    //   2560,
+    //   NULL,
+    //   1,
+    //   &tempTaskHandle
+    // );
+
+    // if (tempTaskHandle != NULL) {
+    //   // Avvia il ticker ogni 240 secondi (ogni 4 minuti e trasmsmione ongi 16 minuti!)
+    //   tempTicker.attach(240, triggerTask);
+    // }
   }
 
-  void triggerTask() {
-    if (tempTaskHandle != NULL) {
-      xTaskResumeFromISR(tempTaskHandle);
-    }
-  }
+  // void triggerTask() {
+  //   if (tempTaskHandle != NULL) {
+  //     xTaskResumeFromISR(tempTaskHandle);
+  //   }
+  // }
 
-  void tempTask(void *pvParameters) {
-    for(;;) {
-      getLocalTemp(); // Esegue la logica di lettura
-      vTaskSuspend(NULL); // Torna a dormire fino al prossimo trigger
-    }
-  }
+  // void tempTask(void *pvParameters) {
+  //   for(;;) {
+  //     getLocalTemp(); // Esegue la logica di lettura
+  //     vTaskSuspend(NULL); // Torna a dormire fino al prossimo trigger
+  //   }
+  // }
 
   // Firma originale mantenuta
-  void getLocalTemp() {
+  void getLocalTemp()
+  {
     volteTemp = 0;
-    uint8_t comfortMask = 0; 
+    uint8_t comfortMask = 0;
     TempAndHumidity newValues = dht.getTempAndHumidity();
 
-    if (dht.getStatus() != 0) {
-      // mqttWifi::publish(logTopic, "Error reading DHT");
+    if (dht.getStatus() != 0)
+    {
+      mqttWifi::publish(logTopic, "Error reading DHT");
       return;
     }
 
@@ -53,17 +62,20 @@ namespace tempDHT {
     myTemp.h += newValues.humidity;
     volteTemp++;
 
-    if (volteTemp >= 4) {
+    if (volteTemp >= 4)
+    {
       ComfortState cf;
       dht.getComfortRatio(cf, newValues.temperature, newValues.humidity);
-      comfortMask = (1 << (uint8_t)cf); 
+      comfortMask = (1 << (uint8_t)cf);
       // Calcolo Comfort Bitmask (Risparmio dati)
       // Bit 0: OK, Bit 1: Too Hot, Bit 2: Too Cold, Bit 3: Too Dry, Bit 4: Too Humid
       // Qui mqttWifi::sendData() leggerà myTemp.t/h e comfortMask
       myTemp.confort = comfortMask;
-      mqttWifi::sendData(); 
+      mqttWifi::sendData();
       volteTemp = 0;
-      // Nota: ricordati di azzerare myTemp.t e .h dentro sendData() 
+      // Reset solo se pubblicazione riuscita
+      myTemp.h = 0;
+      myTemp.t = 0;
       // o subito dopo la chiamata qui.
     }
   }

@@ -1,7 +1,7 @@
-.pioenvs
-.piolibdeps
-.vscode/*
-.clang_complete
+.pio/
+.vscode/
+.pioenvs/
+.piolibdeps/
+.cache/
+compile_commands.json
 .gcc-flags.json
-.pio/*
-lib/ITEADLIB_Arduino_Nextion

@@ -1,4 +1,6 @@
 #include <main.h>
+/// @brief
+/// @param mytime
 void smartDelay(unsigned long mytime)
 {
   uint32_t adesso = millis();
@@ -23,7 +25,7 @@ void irRoutine()
     case spegni:
       mqttWifi::publish(teleTopic, "spegni");
       delay(10);
-      Serial.println("[irRoutine] SHUTDOWN_FROM_MQTT!");
+      logSerialPrintln("[irRoutine] SHUTDOWN_FROM_MQTT!");
       mqttWifi::adessoDormo(8, MotivoSpegnimento::SHUTDOWN_FROM_MQTT);
       break;
     case acquaON:
@@ -44,46 +46,61 @@ void irRoutine()
 
 void setup()
 {
-  delay(2000); // inizializzazione generale
+  delay(500); // inizializzazione generale
+
+#if ESP32_BUILD
   // ===== DISABILITAZIONE BLUETOOTH COMPLETA =====
-  
+
   // 1. Ferma il Bluetooth Classic
   btStop();
-  
-  // 2. Deinizializza il controller (livello più basso)
-  #if CONFIG_BT_ENABLED
+
+// 2. Deinizializza il controller (livello più basso)
+#if CONFIG_BT_ENABLED
   // Rilascia la memoria BT per il WiFi
   esp_bt_mem_release(ESP_BT_MODE_BTDM);
-  Serial.println("Bluetooth disabilitato e memoria rilasciata");
-  #endif
+  logSerialPrintln("Bluetooth disabilitato e memoria rilasciata");
 
-  Serial.begin(115200);
-  delay(2500);
-  Serial.println("Start");
+#endif
+#endif
+  bool nexTest = nexchr::nex_routines(); // init Nextion
+  logSerialBegin(9600);
+  logSerialPrintln("Start");
 
   mqttWifi::setupCompleto();
 
-  Serial.println("Setup wifi OK");
+  logSerialPrintln("Setup wifi OK");
 
- // irrecv.enableIRIn();      // IR
- // wifi_initiate = millis(); // timestamp
+  // irrecv.enableIRIn();      // IR
+  // wifi_initiate = millis(); // timestamp
 
-  bool nexTest = nexchr::nex_routines(); // init Nextion
   if (!nexTest)
   {
-    Serial.println("[SEUP] NEXTION Init faled!");
+    logSerialPrintln("[SETUP] NEXTION Init faled!");
     mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
-    mqttWifi::adessoDormo(8, MotivoSpegnimento::NEXTION_SETUP_FAILED); // entra in sleep se fallisce
+    // mqttWifi::adessoDormo(8, NEXTION_SETUP_FAILED); // entra in sleep se fallisce
   }
-  Serial.println("Nextion OK");
-  tempDHT::setupTemp(); // setup DHT22 e lancio tasker per letture ogni 4 minuti
-  Serial.println("End of Setup");
+
+  logSerialPrintln("Nextion OK");
+  bool dhtTest = tempDHT::setupTemp(); // setup DHT22 e lancio tasker per letture ogni 4 minuti
+  if (!dhtTest)
+  {
+    logSerialPrintln("[SETUP] DHT Init faled!");
+    mqttWifi::publish(logTopic, "Chrono : DHT Fail!");
+    mqttWifi::adessoDormo(8, DHT_SETUP_FAILED); // entra in sleep se fallisce
+  }
+
+  logSerialPrintln("End of Setup");
 }
 
 void loop()
 {
-  //irRoutine();
+  t = millis();
+  if ((millis() - t) > time_between_sensors_reads)
+  {
+    tempDHT::getLocalTemp();
+    t = millis();
+  }
 
   mqttWifi::gestisciConnessione();
-  smartDelay(1000);
+  smartDelay(10000);
 }

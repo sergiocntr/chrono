@@ -115,6 +115,6 @@ namespace nexchr
     update_buttons();
     sendCommand("sleep=0");
     delay(10);
-    return true;
+    return initNextion;
   }
 }

@@ -1,11 +1,26 @@
 #pragma once
 #include <Arduino.h>
 #include <Nextion.h>
-#include <topic/topic.h>
-#include "myIP/myIP.h"
-#include "password/password.h"
 
-//#define versione
+
+//#define DEBUG_CHRONO
+
+/**
+ * Define logSerial for the output of debug messages.
+ */
+#define logSerial Serial
+#ifdef DEBUG_CHRONO
+  #define logSerialPrint(a)        logSerial.print(a)
+  #define logSerialPrintln(a)      logSerial.println(a)
+  #define logSerialPrintf(...)     logSerial.printf(__VA_ARGS__)
+  #define logSerialBegin(a)        logSerial.begin(a)
+#else
+  #define logSerialPrint(a)        do{}while(0)
+  #define logSerialPrintln(a)      do{}while(0)
+  #define logSerialPrintf(...)     do{}while(0)
+  #define logSerialBegin(a)        do{}while(0)
+#endif
+
 extern const char* mqttId;
 struct tempStr{
   float t;
@@ -35,13 +50,14 @@ extern ComandoTende comandoTenda;
   {
     PUBLISH_FALLITO = 0,
     COMANDO_SYSTEM_TOPIC = 1,
-    WIFI_TIMEOUT_GESTIONE = 2,
-    MQTT_TIMEOUT_GESTIONE = 3,
+    WIFI_TIMEOUT_CONNESSIONE = 2,
+    MQTT_TIMEOUT_CONNESSIONE = 3,
     WIFI_FALLITO_SETUP = 4,
     MQTT_FALLITO_RISVEGLIO = 5,
     WIFI_FALLITO_RISVEGLIO = 6,
     NEXTION_SETUP_FAILED = 7,
-    SHUTDOWN_FROM_MQTT = 8  
+    DHT_SETUP_FAILED = 8,
+    SHUTDOWN_FROM_MQTT = 255  
   };
 extern NexTouch *nex_listen_list[];
 extern uint8_t db_array_value[4];
