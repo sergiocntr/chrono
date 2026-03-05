@@ -1,24 +1,19 @@
 #include <main.h>
 /// @brief
 /// @param mytime
-void smartDelay(unsigned long mytime)
-{
+void smartDelay(unsigned long mytime) {
   uint32_t adesso = millis();
-  while ((millis() - adesso) < mytime)
-  {
+  while ((millis() - adesso) < mytime) {
     mqttWifi::client.loop();
     nexLoop(nex_listen_list);
     delay(200);
   }
 }
 
-void irRoutine()
-{
-  if (irrecv.decode(&results))
-  {
+void irRoutine() {
+  if (irrecv.decode(&results)) {
     uint64_t infraredNewValue = results.value;
-    switch (infraredNewValue)
-    {
+    switch (infraredNewValue) {
     case monnezza:
       mqttWifi::publish(teleTopic, "monnezza");
       break;
@@ -44,8 +39,7 @@ void irRoutine()
   }
 }
 
-void setup()
-{
+void setup() {
   delay(500); // inizializzazione generale
 
 #if ESP32_BUILD
@@ -73,32 +67,31 @@ void setup()
   // irrecv.enableIRIn();      // IR
   // wifi_initiate = millis(); // timestamp
 
-  if (!nexTest)
-  {
+  if (!nexTest) {
     logSerialPrintln("[SETUP] NEXTION Init faled!");
     mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
-    // mqttWifi::adessoDormo(8, NEXTION_SETUP_FAILED); // entra in sleep se fallisce
+    // mqttWifi::adessoDormo(8, NEXTION_SETUP_FAILED); // entra in sleep se
+    // fallisce
   }
 
   logSerialPrintln("Nextion OK");
-  bool dhtTest = tempDHT::setupTemp(); // setup DHT22 e lancio tasker per letture ogni 4 minuti
-  if (!dhtTest)
-  {
+  bool dhtTest = tempDHT::setupTemp(); // setup DHT22 e lancio tasker per
+                                       // letture ogni 4 minuti
+  if (!dhtTest) {
     logSerialPrintln("[SETUP] DHT Init faled!");
     mqttWifi::publish(logTopic, "Chrono : DHT Fail!");
     mqttWifi::adessoDormo(8, DHT_SETUP_FAILED); // entra in sleep se fallisce
   }
+  t = millis();
+  tempDHT::getLocalTemp();
 
   logSerialPrintln("End of Setup");
 }
 
-void loop()
-{
-  t = millis();
-  if ((millis() - t) > time_between_sensors_reads)
-  {
-    tempDHT::getLocalTemp();
+void loop() {
+  if ((millis() - t) > time_between_sensors_reads) {
     t = millis();
+    tempDHT::getLocalTemp();
   }
 
   mqttWifi::gestisciConnessione();
