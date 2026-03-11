@@ -93,7 +93,7 @@ namespace nexchr
   {
 
  
-    bool initNextion = nexInit();
+    bool initNextion = nexInit(38400);
     //if (!initNextion)
      // return false;
     delay(10);
@@ -104,7 +104,7 @@ namespace nexchr
     Nout_hum.setText("");
     Nin_hum.setText("");
     Ncurr_hour.setText("");
-    Ncurr_water_temp.setText("");
+    Nwater_temp.setText("");
     Nday.setText("");
     delay(10);
     Nrisc_on.attachPush(Nrisc_onPushCallback);

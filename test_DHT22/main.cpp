@@ -9,7 +9,7 @@ DHTesp dht;
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(38400);
   Serial.println();
   Serial.println("Status\tHumidity (%)\tTemperature (C)\t(F)\tHeatIndex (C)\t(F)");
   String thisBoard= ARDUINO_BOARD;

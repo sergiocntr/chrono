@@ -23,8 +23,6 @@
 #include <topic.h>
 #include "myIP.h"
 #include "password.h"
-
-#include "nex.h"
 #include "mqttWifi.h"
 #include "mqttWifiMessages.h" 
 #include "irnextion.h"
@@ -35,4 +33,5 @@
 static uint32_t t ;
 uint32_t time_between_sensors_reads = 120000L;
 void irRoutine();
+
 

@@ -1,19 +1,56 @@
 #include <main.h>
+#include "NexManager.h"
+#include "PageHandlers.h"
+#include "mqttWifiMessages.h"
 /// @brief
 /// @param mytime
-void smartDelay(unsigned long mytime) {
+MotivoSpegnimento m_wifi_status;
+void smartDelay(unsigned long mytime)
+{
   uint32_t adesso = millis();
-  while ((millis() - adesso) < mytime) {
+  uint32_t lastRefresh = 0; // Per controllo più fine del refresh
+
+  while ((millis() - adesso) < mytime)
+  {
+    // 1. MQTT sempre in ascolto
     mqttWifi::client.loop();
-    nexLoop(nex_listen_list);
-    delay(200);
+
+    // 2. Poll Nextion - ora ritorna l'evento
+    NexManager::TouchEvent evt = NexManager::poll();
+    if (evt.isValid)
+    {
+      switch (evt.page)
+      {
+      case 0:
+        handleHomePage(evt);
+        break;
+      case 1:
+        handleTendePage(evt);
+        break;
+      default:
+        break;
+      }
+    }
+
+    // 3. Refresh intelligente (non a ogni ciclo)
+    // if (millis() - lastRefresh > 200)
+    // { // Aggiorna ogni 200ms max
+    //   NexManager::refreshCurrentPage();
+    //   lastRefresh = millis();
+    // }
+
+    // 4. Delay breve per non bloccare
+    delay(10); // 10ms è meglio di 200ms per reattività
   }
 }
 
-void irRoutine() {
-  if (irrecv.decode(&results)) {
+void irRoutine()
+{
+  if (irrecv.decode(&results))
+  {
     uint64_t infraredNewValue = results.value;
-    switch (infraredNewValue) {
+    switch (infraredNewValue)
+    {
     case monnezza:
       mqttWifi::publish(teleTopic, "monnezza");
       break;
@@ -39,7 +76,8 @@ void irRoutine() {
   }
 }
 
-void setup() {
+void setup()
+{
   delay(500); // inizializzazione generale
 
 #if ESP32_BUILD
@@ -56,44 +94,64 @@ void setup() {
 
 #endif
 #endif
-  bool nexTest = nexchr::nex_routines(); // init Nextion
-  logSerialBegin(9600);
+  //bool nexTest = nexchr::nex_routines(); // init Nextion
+  NexManager::begin(38400);
   logSerialPrintln("Start");
+  delay(1000);
+  
 
-  mqttWifi::setupCompleto();
+  m_wifi_status = mqttWifi::setupCompleto();
+  if (m_wifi_status != SETUP_OK)
+{
+  NexManager::shutdownNextion(); 
+  mqttWifi::adessoDormo(8, m_wifi_status);
+}
+NexManager::refreshCurrentPage();  
+mqttWifi::setCallback();
 
   logSerialPrintln("Setup wifi OK");
 
   // irrecv.enableIRIn();      // IR
   // wifi_initiate = millis(); // timestamp
 
-  if (!nexTest) {
-    logSerialPrintln("[SETUP] NEXTION Init faled!");
-    mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
-    // mqttWifi::adessoDormo(8, NEXTION_SETUP_FAILED); // entra in sleep se
-    // fallisce
-  }
+  // if (!nexTest)
+  // {
+  //   logSerialPrintln("[SETUP] NEXTION Init faled!");
+  //   mqttWifi::publish(logTopic, "Chrono : Nextion Fail!");
+  //   // mqttWifi::adessoDormo(8, NEXTION_SETUP_FAILED); // entra in sleep se
+  //   // fallisce
+  // }
 
   logSerialPrintln("Nextion OK");
   bool dhtTest = tempDHT::setupTemp(); // setup DHT22 e lancio tasker per
                                        // letture ogni 4 minuti
-  if (!dhtTest) {
+  if (!dhtTest)
+  {
     logSerialPrintln("[SETUP] DHT Init faled!");
+    NexManager::shutdownNextion(); 
     mqttWifi::publish(logTopic, "Chrono : DHT Fail!");
     mqttWifi::adessoDormo(8, DHT_SETUP_FAILED); // entra in sleep se fallisce
   }
   t = millis();
   tempDHT::getLocalTemp();
-
+  NexManager::wakeupNextion();
   logSerialPrintln("End of Setup");
 }
 
-void loop() {
-  if ((millis() - t) > time_between_sensors_reads) {
+void loop()
+{
+  if ((millis() - t) > time_between_sensors_reads)
+  {
     t = millis();
     tempDHT::getLocalTemp();
   }
 
-  mqttWifi::gestisciConnessione();
+  m_wifi_status = mqttWifi::gestisciConnessione();
+  
+  if (m_wifi_status != CONN_OK)
+{
+  NexManager::shutdownNextion(); 
+  mqttWifi::adessoDormo(8, m_wifi_status);
+}
   smartDelay(10000);
 }

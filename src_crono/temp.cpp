@@ -1,4 +1,5 @@
 #include "temp.h"
+#include "mqttWifiMessages.h"
 namespace tempDHT {
 // Configurazione Pin e Variabili
 DHTesp dht;

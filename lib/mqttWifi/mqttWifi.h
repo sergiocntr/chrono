@@ -18,7 +18,7 @@
 #include <topic.h>
 #include <myIP.h>
 #include <password.h>
-#include "mqttWifiMessages.h"
+//#include "mqttWifiMessages.h"
 
 namespace mqttWifi
 {
@@ -47,10 +47,13 @@ namespace mqttWifi
   // ========== SOTTOSCRIZIONE TOPIC ==========
   bool sottoscriviTopic();
 
+    // ========== GESTIONE PUBBLICAZIONE ==========
+  bool publish(const char *topic, const char *message, bool retained = false);
+
   // ========== GESTIONE PRINCIPALE (DA CHIAMARE NEL LOOP) ==========
-  void gestisciConnessione();
+  MotivoSpegnimento gestisciConnessione();
 
   // ========== SETUP COMPLETO (DA CHIAMARE IN setup()) ==========
-  void setupCompleto();
+  MotivoSpegnimento setupCompleto();
 
 } // namespace mqttWifi

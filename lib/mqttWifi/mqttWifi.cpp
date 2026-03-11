@@ -1,5 +1,5 @@
 #include "mqttWifi.h"
-#include "mqttWifiMessages.h"
+
 
 WiFiClient mywifi;
 WiFiClient c;
@@ -16,6 +16,37 @@ namespace mqttWifi
 
   uint8_t tentativiWifi = 0;
   uint8_t tentativiMqtt = 0;
+
+  // ========== GESTIONE PUBBLICAZIONE ==========
+  bool publish(const char *topic, const char *message, bool retained)
+  {
+    if (!client.connected())
+    {
+      logSerialPrintln("[PUBLISH] Client non connesso");
+      return false;
+    }
+
+    // Tentativi multipli con delay ridotto
+    for (size_t tentativo = 0; tentativo < 3; tentativo++)
+    {
+      client.loop(); // Mantieni connessione attiva
+
+      // publish(topic, payload, retained)
+      if (client.publish(topic, message, retained))
+      {
+        logSerialPrintf("[PUBLISH] OK su tentativo %d %s\n", tentativo + 1,
+                        retained ? "(RETAINED)" : "");
+        return true; // Successo
+      }
+
+      logSerialPrintf("[PUBLISH] Fallito tentativo %d/3\n", tentativo + 1);
+      delay(50); // Breve pausa tra tentativi
+    }
+
+    // Dopo 3 tentativi falliti, entra in modalità riposo
+    adessoDormo(8, PUBLISH_FALLITO);
+    return false;
+  }
 
   // ========== LOG MOTIVO SPEGNIMENTO ==========
   void logMotivoSpegnimento(MotivoSpegnimento motivo)
@@ -63,8 +94,8 @@ namespace mqttWifi
     if (mode > 0)
     {
       logSerialPrintln("[SLEEP] Spegnimento Nextion");
-      sendCommand("thup=1");
-      sendCommand("sleep=1");
+      //sendCommand("thup=1");
+      //sendCommand("sleep=1");
       delay(200);
     }
 
@@ -183,7 +214,6 @@ namespace mqttWifi
     String clientId = String(mqttId) + String(random(0xffff), HEX);
 
     client.setServer(mqtt_server, mqtt_port);
-    client.setCallback(callback);
     client.setBufferSize(512);
 
     uint32_t start = millis();
@@ -234,7 +264,7 @@ namespace mqttWifi
   }
 
   // ========== GESTIONE CONNESSIONE (CHIAMARE NEL LOOP) ==========
-  void gestisciConnessione()
+  MotivoSpegnimento gestisciConnessione()
   {
     // Verifica WiFi
     if (WiFi.status() != WL_CONNECTED)
@@ -247,10 +277,11 @@ namespace mqttWifi
         if (tentativiWifi >= MAX_TENTATIVI)
         {
           logSerialPrintf("[GESTIONE] WiFi fallito dopo %d tentativi\n", MAX_TENTATIVI);
-          adessoDormo(8, WIFI_TIMEOUT_CONNESSIONE);
-          return; // Non necessario (deep sleep non ritorna), ma per chiarezza
+          //adessoDormo(8, WIFI_TIMEOUT_CONNESSIONE);
+          return WIFI_TIMEOUT_CONNESSIONE; // Non necessario (deep sleep non ritorna), ma per chiarezza
         }
-        return; // Riprova al prossimo ciclo
+        tentativiWifi ++;
+        return CONN_OK; // Riprova al prossimo ciclo
       }
     }
 
@@ -265,19 +296,22 @@ namespace mqttWifi
         if (tentativiMqtt >= MAX_TENTATIVI)
         {
           logSerialPrintf("[GESTIONE] MQTT fallito dopo %d tentativi\n", MAX_TENTATIVI);
-          adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
-          return;
+          //adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
+          return MQTT_TIMEOUT_CONNESSIONE;
         }
-        return; // Riprova al prossimo ciclo
+        tentativiMqtt ++;
+        return CONN_OK; // Riprova al prossimo ciclo
       }
     }
 
     // Tutto OK: mantieni la connessione
     client.loop();
+    tentativiWifi = 0; tentativiMqtt = 0;
+    return CONN_OK;
   }
 
   // ========== SETUP COMPLETO ==========
-  void setupCompleto()
+  MotivoSpegnimento setupCompleto()
   {
     logSerialPrintln("========================================");
     logSerialPrintln("[SETUP] Avvio mqttWifi");
@@ -289,18 +323,19 @@ namespace mqttWifi
     // Primo tentativo WiFi
     if (!connectWifi())
     {
-      adessoDormo(8, WIFI_FALLITO_SETUP);
-      return;
+      //adessoDormo(8, WIFI_FALLITO_SETUP);
+      return WIFI_FALLITO_SETUP;
     }
 
     // Primo tentativo MQTT
     if (!connectMqtt())
     {
-      adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
-      return;
+      //adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
+      return MQTT_TIMEOUT_CONNESSIONE;
     }
 
     logSerialPrintln("[SETUP] ✓ Setup completato con successo");
+    return SETUP_OK;
   }
 
 } // namespace mqttWifi
