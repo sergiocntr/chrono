@@ -8,10 +8,12 @@ static uint8_t volteTemp = 0;
 // TaskHandle_t tempTaskHandle = NULL;
 bool setupTemp() {
   dht.setup(DHT_PIN, DHTesp::DHT22);
-  logSerialPrintln("DHT error status: " + String(dht.getStatusString()));
+  
   if (dht.getStatus() != 0) {
-    logSerialPrintln("DHT error status: " + String(dht.getStatusString()));
+    LOG_ERROR("[DHT] error status: %s\n",  String(dht.getStatusString()));
     return false;
+  }else{
+    LOG_VERBOSE("[DHT] status: %s\n",  String(dht.getStatusString()));
   }
   // Inizializzazione variabili media
   volteTemp = 0;
@@ -53,6 +55,7 @@ void getLocalTemp() {
   TempAndHumidity newValues = dht.getTempAndHumidity();
 
   if (dht.getStatus() != 0) {
+    LOG_ERROR("[DHT] Error reading DHT!\n");
     mqttWifi::publish(logTopic, "Error reading DHT");
     return;
   }

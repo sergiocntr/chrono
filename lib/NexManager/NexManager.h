@@ -6,7 +6,7 @@
  * @brief Gestione leggera e non bloccante della comunicazione con il display
  * Nextion.
  * // Invece di setPicture, setText, setValue...
-    NexManager::sendFormatted("%s.pic=%d", "c0", 5);           // Crop picture
+    NexManager::sendFormatted("%s.picc=%d", "c0", 5);           // Crop picture
     NexManager::sendFormatted("%s.txt=\"%s\"", "t0", "Ciao"); // Testo
     NexManager::sendFormatted("%s.val=%d", "h0", 50);         // Valore numerico
     NexManager::sendFormatted("page %d", 1);                   // Cambio pagina
@@ -29,7 +29,7 @@ struct TouchEvent {
     TouchEvent() : page(0), component(0), event(0), isValid(false) {}
 };
 /* // Invece di setPicture, setText, setValue...
-    NexManager::sendFormatted("%s.pic=%d", "c0", 5);           // Crop picture
+    NexManager::sendFormatted("%s.picc=%d", "c0", 5);           // Crop picture
     NexManager::sendFormatted("%s.txt=\"%s\"", "t0", "Ciao"); // Testo
     NexManager::sendFormatted("%s.val=%d", "h0", 50);         // Valore numerico
     NexManager::sendFormatted("page %d", 1);                   // Cambio pagina

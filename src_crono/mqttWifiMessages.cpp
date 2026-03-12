@@ -14,38 +14,28 @@ namespace mqttWifi
   }
   void sendData()
   {
-    delay(10);
-    StaticJsonBuffer<256> jsonBuffer;
-    JsonObject &root = jsonBuffer.createObject();
+    StaticJsonDocument<256> doc;
 
-    root["topic"] = "SalChr";
-    root["hum"] = myTemp.h / 4;
-    root["temp"] = myTemp.t / 4;
-    root["cf"] = myTemp.confort;
+    doc["topic"] = "SalChr";
+    doc["hum"] = myTemp.h / 4;  // raw value è x4
+    doc["temp"] = myTemp.t / 4; // raw value è x4
+    doc["cf"] = myTemp.confort;
 
-    char JSONmessageBuffer[256];
-    root.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+    char buffer[256];
+    serializeJson(doc, buffer, sizeof(buffer)); // ✅ safe con size limit
 
-    logSerialPrintln("[SENDDATA] Invio dati temperatura...");
+    LOG_VERBOSE("[SENDDATA] Invio dati temperatura %s\n", buffer);
 
-    // Usa retained=true per i dati dei sensori
-    // così i nuovi client vedono subito l'ultimo valore
-    if (publish(casaSensTopic, JSONmessageBuffer, true))
-    {
-
-      logSerialPrintln("[SENDDATA] ✓ Dati inviati con successo");
-    }
+    if (publish(casaSensTopic, buffer, true))
+      LOG_INFO("[SENDDATA] ✓ Dati inviati con successo");
     else
-    {
-      logSerialPrintln("[SENDDATA] ✗ Invio fallito");
-    }
-    delay(10);
+      LOG_ERROR("[SENDDATA] ✗ Invio fallito");
   }
 
   // ========== AGGIORNAMENTO FIRMWARE ==========
   void checkForUpdates()
   {
-    logSerialPrintln("[UPDATE] Controllo aggiornamenti firmware...");
+    LOG_VERBOSE("[UPDATE] Controllo aggiornamenti firmware...");
 
     String fwURL = String(fwUrlBase);
     fwURL.concat(mqttId);
@@ -62,7 +52,7 @@ namespace mqttWifi
       String newFWVersion = httpClient.getString();
       int newVersion = newFWVersion.toInt();
 
-      logSerialPrintf(
+      LOG_VERBOSE(
           "[UPDATE] Versione corrente: %d, Versione disponibile: %d\n", versione,
           newVersion);
       NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", newFWVersion.c_str());
@@ -71,7 +61,7 @@ namespace mqttWifi
 
       if (newVersion > versione)
       {
-        logSerialPrintln("[UPDATE] Nuova versione disponibile! Avvio update...");
+        LOG_VERBOSE("[UPDATE] Nuova versione disponibile! Avvio update...");
 
         client.disconnect();
         delay(1000);
@@ -81,28 +71,28 @@ namespace mqttWifi
         switch (ret)
         {
         case HTTP_UPDATE_FAILED:
-          logSerialPrintln("[UPDATE] ✗ Aggiornamento FALLITO");
+          LOG_VERBOSE("[UPDATE] ✗ Aggiornamento FALLITO");
           NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", "U_F");
           // Ntcurr.setText("U_F");
           delay(50);
 
           break;
         case HTTP_UPDATE_NO_UPDATES:
-          logSerialPrintln("[UPDATE] Nessun aggiornamento disponibile");
+          LOG_VERBOSE("[UPDATE] Nessun aggiornamento disponibile");
           NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", "N_U");
           // Ntcurr.setText("N_U");
           delay(50);
 
           break;
         case HTTP_UPDATE_OK:
-          logSerialPrintln("[UPDATE] ✓ Aggiornamento completato - Riavvio...");
+          LOG_VERBOSE("[UPDATE] ✓ Aggiornamento completato - Riavvio...");
           // Riavvio automatico
           break;
         }
       }
       else
       {
-        logSerialPrintln("[UPDATE] Firmware già aggiornato");
+        LOG_VERBOSE("[UPDATE] Firmware già aggiornato");
         NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", "S_V");
         // Ntcurr.setText("S_V");
         delay(50);
@@ -110,7 +100,7 @@ namespace mqttWifi
     }
     else
     {
-      logSerialPrintf("[UPDATE] ✗ Errore HTTP: %d\n", httpCode);
+      LOG_VERBOSE("[UPDATE] ✗ Errore HTTP: %d\n", httpCode);
       NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", "A_E");
       // Ntcurr.setText("A_E");
       delay(50);
@@ -131,187 +121,132 @@ namespace mqttWifi
     {
       logSerialPrint((char)payload[i]);
     }
-    logSerialPrintln();
+    LOG_VERBOSE();
 #else
-    logSerialPrintf("[CALLBACK] Ricevuto da topic: %s\n", topic);
-
-    delay(20);
-    // bool handled = false;
+    LOG_VERBOSE("[CALLBACK] Ricevuto da topic: %s\n", topic);
 
     /* -------------------------------------------------------------
-       1️⃣  GESTIONE COMANDI DI SISTEMA (sleep, update, …)
-       ------------------------------------------------------------- */
+           1️⃣  COMANDI DI SISTEMA
+        ------------------------------------------------------------- */
     if (strcmp(topic, systemTopic) == 0 && char(payload[0]) == '0')
     {
-      logSerialPrintln("[CALLBACK] Comando SLEEP ricevuto");
+      LOG_VERBOSE("[CALLBACK] Comando SLEEP ricevuto");
       adessoDormo(8, COMANDO_SYSTEM_TOPIC);
       return;
     }
     if (strcmp(topic, updateTopic) == 0 && char(payload[0]) == '0')
     {
-      logSerialPrintln("[CALLBACK] Comando UPDATE ricevuto");
+      LOG_VERBOSE("[CALLBACK] Comando UPDATE ricevuto");
       NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", "UPMQ");
-      // Ntcurr.setText("UPMQ");
       delay(50);
       checkForUpdates();
       return;
     }
 
     /* -------------------------------------------------------------
-       2️⃣  COMANDI RELAY (acqua / riscalda) → aggiornamento crop
-       ------------------------------------------------------------- */
+       2️⃣  COMANDI RELAY — fix: indici corretti
+    ------------------------------------------------------------- */
     if (strcmp(topic, acquaTopic) == 0)
     {
       bool on = (char(payload[0]) != '0');
-      stato.relays[ACQUA] = on;
-      NexManager::sendFormatted("%s.pic=%d", "Nwater_on", on);
-      // setRelayCrop(acquaTopic, on); // gestisce Nwater_on
+      stato.relays[ACQUA] = on;                                 // stato aggiornato
+      NexManager::sendFormatted("%s.picc=%d", "Nwater_on", on); // display aggiornato
       return;
     }
     if (strcmp(topic, riscaldaTopic) == 0)
     {
       bool on = (char(payload[0]) != '0');
-      stato.relays[ACQUA] = on;
-      NexManager::sendFormatted("%s.pic=%d", "Nrisc_on", on);
-      // setRelayCrop(riscaldaTopic, on); // gestisce Nrisc_on
+      stato.relays[RISCALDAMENTO] = on;
+      NexManager::sendFormatted("%s.picc=%d", "Nrisc_on", on);
       return;
     }
 
     /* -------------------------------------------------------------
-       3️⃣  PARSING JSON GENERICO (sensori vari)
-       ------------------------------------------------------------- */
-    StaticJsonBuffer<512> jsonBuffer;
-    JsonObject &root = jsonBuffer.parseObject(payload);
-    if (!root.success())
+       3️⃣  PARSING JSON — ArduinoJson v6, con length
+    ------------------------------------------------------------- */
+    StaticJsonDocument<512> doc;
+    DeserializationError err = deserializeJson(doc, payload, length);
+    if (err)
     {
-      logSerialPrintln("[CALLBACK] JSON non valido, ignoro messaggio");
+      LOG_VERBOSE("[CALLBACK] JSON non valido: %s\n", err.c_str());
       return;
     }
 
-    // La chiave obbligatoria "topic" indica il tipo di sensore
-    const char *innerTopic = root["topic"];
+    const char *innerTopic = doc["topic"];
     if (!innerTopic)
     {
-      logSerialPrintln("[CALLBACK] JSON senza campo \"topic\" → ignorato");
+      LOG_VERBOSE("[CALLBACK] JSON senza campo \"topic\" → ignorato");
       return;
     }
 
-    // Aggiorna lo stato globale (temperatura, umidità, power, …)
-    // updateSystemState(root);
-
-    // Aggiornamento UI specifico (es. mostrare valori sul display)
-    // handleGenericSensor(innerTopic, root);
-
-    // (eventuale refresh della pagina corrente)
-    // NexManager::refreshCurrentPage();
+    LOG_VERBOSE("[CALLBACK] Topic JSON interno: %s\n", innerTopic);
 
     /* -------------------------------------------------------------
-       4️⃣  Mantieni la connessione MQTT viva
-       ------------------------------------------------------------- */
-    if (client.connected())
-      client.loop();
-    if (!root.success())
-    {
-      logSerialPrintln("[CALLBACK] JSON non valido, ignoro messaggio");
-      return;
-    }
-
-    String msg_Topic = root["topic"];
-    logSerialPrintf("[CALLBACK] Topic JSON interno: %s\n", msg_Topic.c_str());
-
-    // ========== GESTIONE MESSAGGI PER TOPIC ==========
+       4️⃣  DISPATCH PER TOPIC
+    ------------------------------------------------------------- */
     if (strcmp(topic, systemTopic) == 0)
     {
-      if (msg_Topic == "UpTime")
+      if (strcmp(innerTopic, "UpTime") == 0)
       {
-        const char *Nex_Time = root["hours"];
-
-        // Ncurr_hour.setText(Nex_Time);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Ncurr_hour", Nex_Time); // Testo
-
-        // delay(50);
-        const char *Nex_Day = root["Day"];
-        // Nday.setText(Nex_Day);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nday", Nex_Day); // Testo
-        // delay(50);
-
-        logSerialPrintf("[CALLBACK] Aggiornato orario: %s, giorno: %s\n",
-                        Nex_Time, Nex_Day);
+        const char *Nex_Time = doc["hours"] | "N/A"; // ✅ default safe
+        const char *Nex_Day = doc["Day"] | "N/A";
+        NexManager::sendFormatted("%s.txt=\"%s\"", "Ncurr_hour", Nex_Time);
+        NexManager::sendFormatted("%s.txt=\"%s\"", "Nday", Nex_Day);
+        LOG_VERBOSE("[CALLBACK] Orario: %s, Giorno: %s\n", Nex_Time, Nex_Day);
       }
     }
     else if (strcmp(topic, casaSensTopic) == 0)
     {
-      if (msg_Topic == "DHTCamera")
+      if (strcmp(innerTopic, "DHTCamera") == 0)
       {
-        const char *Nex_inHm = root["Hum"];
-        const char *Nex_inTemp = root["Temp"];
-        // Ntcurr.setText(Nex_inTemp);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", Nex_inTemp); // Testo
-        // delay(50);
+        // ✅ Leggi come float, poi converti
+        float temp = doc["Temp"] | 0.0f;
+        float hum = doc["Hum"] | 0.0f;
 
-        // Nin_hum.setText(Nex_inHm);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nin_hum", Nex_inHm); // Testo
-        // delay(50);
+        char tempStr[10], humStr[10];
+        dtostrf(temp, 4, 1, tempStr);
+        dtostrf(hum, 4, 1, humStr);
 
-        logSerialPrintf("[CALLBACK] DHT Camera - Temp: %s°C, Hum: %s%%\n",
-                        Nex_inTemp, Nex_inHm);
+        NexManager::sendFormatted("%s.txt=\"%s\"", "Ntcurr", tempStr);
+        NexManager::sendFormatted("%s.txt=\"%s\"", "Nin_hum", humStr);
+        LOG_VERBOSE("[CALLBACK] DHT Camera - Temp: %s°C, Hum: %s%%\n",
+                    tempStr, humStr);
       }
     }
-    else if (strcmp(topic, extSensTopic) == 0)
-    {
-      if (msg_Topic == "Caldaia")
+      else if (strcmp(topic, extSensTopic) == 0)
       {
-        float acquaTemp = root["acqua"];
-        char tempStr[10];
-        dtostrf(acquaTemp, 4, 1, tempStr);
-        // Nwater_temp.setText(tempStr);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nwater_temp", tempStr); // Testo
-
-        // delay(50);
-
-        logSerialPrintf("[CALLBACK] Temp acqua caldaia: %s°C\n", tempStr);
+        if (strcmp(innerTopic, "Caldaia") == 0)
+        {
+          float acquaTemp = doc["acqua"] | 0.0f;
+          char tempStr[10];
+          dtostrf(acquaTemp, 4, 1, tempStr);
+          NexManager::sendFormatted("%s.txt=\"%s\"", "Nwater_temp", tempStr);
+          LOG_VERBOSE("[CALLBACK] Temp acqua: %s°C\n", tempStr);
+        }
+        else if (strcmp(innerTopic, "Terrazza") == 0)
+        {
+          float outTemp = doc["Temp"] | 0.0f;
+          float outHum = doc["Hum"] | 0.0f;
+          char tempStr[10], humStr[10];
+          dtostrf(outTemp, 4, 1, tempStr);
+          dtostrf(outHum, 4, 1, humStr);
+          NexManager::sendFormatted("%s.txt=\"%s\"", "Nout_temp", tempStr);
+          NexManager::sendFormatted("%s.txt=\"%s\"", "Nout_hum", humStr);
+          LOG_VERBOSE("[CALLBACK] Terrazza - Temp: %s°C, Hum: %s%%\n",
+                      tempStr, humStr);
+        }
       }
-      else if (msg_Topic == "Terrazza")
+      else if (strcmp(topic, eneValTopic) == 0)
       {
-        float outHum = root["Hum"];
-        float outTemp = root["Temp"];
-
-        char humStr[10], tempStr[10];
-        dtostrf(outHum, 4, 1, humStr);
-        dtostrf(outTemp, 4, 2, tempStr);
-
-        // Nout_temp.setText(tempStr);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nout_temp", tempStr); // Testo
-        // delay(50);
-
-        // Nout_hum.setText(humStr);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nout_hum", humStr); // Testo
-        // delay(50);
-
-        logSerialPrintf("[CALLBACK] Terrazza - Temp: %s°C, Hum: %s%%\n", tempStr,
-                        humStr);
+        if (strcmp(innerTopic, "EneMain") == 0)
+        {
+          int eneVal = doc["e"] | 0;
+          char eneStr[10];
+          itoa(eneVal, eneStr, 10);
+          NexManager::sendFormatted("%s.txt=\"%s\"", "Nset_temp", eneStr);
+          LOG_VERBOSE("[CALLBACK] Valore energia: %s\n", eneStr);
+        }
       }
-    }
-    else if (strcmp(topic, eneValTopic) == 0)
-    {
-      if (msg_Topic == "EneMain")
-      {
-        int eneVal = root["e"]; // se è un intero
-        char eneStr[10];
-        itoa(eneVal, eneStr, 10);
-        // Nset_temp.setText(eneStr);
-        NexManager::sendFormatted("%s.txt=\"%s\"", "Nset_temp", eneStr); // Testo
-        // delay(50);
-
-        logSerialPrintf("[CALLBACK] Valore energia: %s\n", eneStr);
-      }
-    }
-
-    // delay(50);
-    if (client.connected())
-    {
-      client.loop();
-    }
 #endif
   }
 

@@ -1,6 +1,5 @@
 #include "mqttWifi.h"
 
-
 WiFiClient mywifi;
 WiFiClient c;
 
@@ -22,7 +21,7 @@ namespace mqttWifi
   {
     if (!client.connected())
     {
-      logSerialPrintln("[PUBLISH] Client non connesso");
+      LOG_ERROR("[PUBLISH] Client non connesso");
       return false;
     }
 
@@ -34,12 +33,12 @@ namespace mqttWifi
       // publish(topic, payload, retained)
       if (client.publish(topic, message, retained))
       {
-        logSerialPrintf("[PUBLISH] OK su tentativo %d %s\n", tentativo + 1,
-                        retained ? "(RETAINED)" : "");
+        LOG_VERBOSE("[PUBLISH] OK su tentativo %d %s\n", tentativo + 1,
+                    retained ? "(RETAINED)" : "");
         return true; // Successo
       }
 
-      logSerialPrintf("[PUBLISH] Fallito tentativo %d/3\n", tentativo + 1);
+      LOG_ERROR("[PUBLISH] Fallito tentativo %d/3\n", tentativo + 1);
       delay(50); // Breve pausa tra tentativi
     }
 
@@ -51,35 +50,35 @@ namespace mqttWifi
   // ========== LOG MOTIVO SPEGNIMENTO ==========
   void logMotivoSpegnimento(MotivoSpegnimento motivo)
   {
-    logSerialPrint("[SLEEP] Motivo: ");
+    LOG_INFO("[SLEEP] Motivo: ");
     switch (motivo)
     {
     case PUBLISH_FALLITO:
-      logSerialPrintln("PUBLISH FALLITO dopo 3 tentativi");
+      LOG_ERROR("PUBLISH FALLITO dopo 3 tentativi");
       break;
     case COMANDO_SYSTEM_TOPIC:
-      logSerialPrintln("COMANDO via systemTopic (payload '0')");
+      LOG_VERBOSE("COMANDO via systemTopic (payload '0')");
       break;
     case WIFI_TIMEOUT_CONNESSIONE:
-      logSerialPrintln("WiFi TIMEOUT dopo 3 tentativi");
+      LOG_ERROR("WiFi TIMEOUT dopo 3 tentativi");
       break;
     case MQTT_TIMEOUT_CONNESSIONE:
-      logSerialPrintln("MQTT TIMEOUT dopo 3 tentativi");
+      LOG_ERROR("MQTT TIMEOUT dopo 3 tentativi");
       break;
     case WIFI_FALLITO_SETUP:
-      logSerialPrintln("WiFi FALLITO durante setup");
+      LOG_ERROR("WiFi FALLITO durante setup");
       break;
     case NEXTION_SETUP_FAILED:
-      logSerialPrintln("NEXTION INIT FAILLITO durante setup");
+      LOG_ERROR("NEXTION INIT FAILLITO durante setup");
       break;
     case DHT_SETUP_FAILED:
-      logSerialPrintln("DHT INIT FAILLITO durante setup");
+      LOG_ERROR("DHT INIT FAILLITO durante setup");
       break;
     case SHUTDOWN_FROM_MQTT:
-      logSerialPrintln("SHUTDOWN FROM MQTT");
+      LOG_INFO("SHUTDOWN FROM MQTT");
       break;
     default:
-      logSerialPrintln("SCONOSCIUTO");
+      LOG_WARN("SCONOSCIUTO");
       break;
     }
     Serial.flush();
@@ -93,28 +92,28 @@ namespace mqttWifi
     // Spegnimento Nextion
     if (mode > 0)
     {
-      logSerialPrintln("[SLEEP] Spegnimento Nextion");
-      //sendCommand("thup=1");
-      //sendCommand("sleep=1");
+      LOG_VERBOSE("[SLEEP] Spegnimento Nextion");
+      // sendCommand("thup=1");  // gestito altrove
+      // sendCommand("sleep=1");
       delay(200);
     }
 
     // Chiusura MQTT
     if (client.connected())
     {
-      logSerialPrintln("[SLEEP] Disconnessione MQTT");
+      LOG_VERBOSE("[SLEEP] Disconnessione MQTT");
       client.disconnect();
       delay(100);
     }
 
     // Spegnimento WiFi
-    logSerialPrintln("[SLEEP] Spegnimento WiFi");
+    LOG_VERBOSE("[SLEEP] Spegnimento WiFi");
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
     delay(200);
 
     // Deep sleep
-    logSerialPrintln("[SLEEP] Deep sleep per 5 minuti");
+    LOG_VERBOSE("[SLEEP] Deep sleep per 5 minuti");
     Serial.flush();
     delay(100);
 #ifdef ESP8266_BUILD
@@ -146,10 +145,10 @@ namespace mqttWifi
 #ifdef ESP8266_BUILD
     WiFi.setOutputPower(17);
     WiFi.forceSleepWake();
-    logSerialPrintln("[WiFi] Setup ESP8266");
+    LOG_VERBOSE("[WiFi] Setup ESP8266");
 
 #elif ESP32_BUILD
-    logSerialPrintln("[WiFi] Setup ESP32 C3");
+    LOG_VERBOSE("[WiFi] Setup ESP32 C3");
     WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
 #endif
@@ -162,7 +161,7 @@ namespace mqttWifi
     uint8_t mac[6];
     WiFi.macAddress(mac);
     unsigned long delayMs = ((mac[4] + mac[5]) % 100) * 10;
-    logSerialPrintf("[SETUP] Delay casuale: %lu ms\n", delayMs);
+    LOG_VERBOSE("[SETUP] Delay casuale: %lu ms\n", delayMs);
     delay(delayMs);
   }
 
@@ -175,7 +174,7 @@ namespace mqttWifi
       return true;
     }
 
-    logSerialPrintf("[WiFi] Tentativo %d/%d\n", tentativiWifi + 1, MAX_TENTATIVI);
+    LOG_VERBOSE("[WiFi] Tentativo %d/%d\n", tentativiWifi + 1, MAX_TENTATIVI);
     WiFi.begin(ssid, password);
     delay(200);
     uint32_t start = millis();
@@ -183,17 +182,15 @@ namespace mqttWifi
     {
       if (millis() - start > TIMEOUT_WIFI)
       {
-        logSerialPrintln("[WiFi] TIMEOUT");
+        LOG_WARN("[WiFi] TIMEOUT");
         tentativiWifi++;
         return false;
       }
       delay(250);
-      logSerialPrint(".");
+      // logSerialPrint(".");
     }
 
-    logSerialPrintln("\n[WiFi] ✓ Connesso");
-    logSerialPrint("[WiFi] IP: ");
-    logSerialPrintln(WiFi.localIP());
+    LOG_VERBOSE("\n[WiFi] ✓ Connesso a %s\n", WiFi.localIP().toString());
 
     tentativiWifi = 0; // Reset contatore
     delay(50);
@@ -209,7 +206,7 @@ namespace mqttWifi
       return true;
     }
 
-    logSerialPrintf("[MQTT] Tentativo %d/%d\n", tentativiMqtt + 1, MAX_TENTATIVI);
+    LOG_VERBOSE("[MQTT] Tentativo %d/%d\n", tentativiMqtt + 1, MAX_TENTATIVI);
 
     String clientId = String(mqttId) + String(random(0xffff), HEX);
 
@@ -221,20 +218,20 @@ namespace mqttWifi
     {
       if (millis() - start > TIMEOUT_MQTT)
       {
-        logSerialPrintln("[MQTT] TIMEOUT");
+        LOG_WARN("[MQTT] TIMEOUT");
         tentativiMqtt++;
         return false;
       }
 
       if (client.connect(clientId.c_str(), mqttUser, mqttPass))
       {
-        logSerialPrintln("[MQTT] ✓ Connesso");
+        LOG_VERBOSE("[MQTT] ✓ Connesso");
         tentativiMqtt = 0; // Reset contatore
         return sottoscriviTopic();
       }
 
       delay(250);
-      logSerialPrint(".");
+      // logSerialPrint(".");
     }
 
     return false;
@@ -243,7 +240,7 @@ namespace mqttWifi
   // ========== SOTTOSCRIZIONE TOPIC ==========
   bool sottoscriviTopic()
   {
-    logSerialPrintln("[MQTT] Sottoscrizione topic...");
+    LOG_VERBOSE("[MQTT] Sottoscrizione topic...");
 
     client.publish(logTopic, "Crono connesso");
     delay(10);
@@ -259,83 +256,84 @@ namespace mqttWifi
 
     client.loop();
 
-    logSerialPrintln(success ? "[MQTT] ✓ Sottoscrizioni OK" : "[MQTT] ✗ Errore sottoscrizioni");
+    if (success)
+      LOG_VERBOSE("[MQTT] ✓ Sottoscrizioni OK");
+    else
+      LOG_ERROR("[MQTT] ✗ Errore sottoscrizioni");
     return success;
   }
 
-  // ========== GESTIONE CONNESSIONE (CHIAMARE NEL LOOP) ==========
-  MotivoSpegnimento gestisciConnessione()
-  {
-    // Verifica WiFi
-    if (WiFi.status() != WL_CONNECTED)
+MotivoSpegnimento gestisciConnessione()
+{
+    // ── WiFi ──────────────────────────────────────────────
+    while (WiFi.status() != WL_CONNECTED)  // ✅ while prima dell'if
     {
-      logSerialPrintln("[GESTIONE] WiFi disconnesso!");
+        LOG_WARN("[GESTIONE] WiFi disconnesso, tentativo %d/%d\n",
+                 tentativiWifi + 1, MAX_TENTATIVI);
 
-      if (!connectWifi())
-      {
-        // Fallito questo tentativo
+        if (connectWifi())
+        {
+            LOG_INFO("[GESTIONE] WiFi connesso dopo %d tentativi\n",
+                     tentativiWifi + 1);
+            tentativiWifi = 0;
+            break;  // ✅ connesso, esci dal while
+        }
+
+        tentativiWifi++;
         if (tentativiWifi >= MAX_TENTATIVI)
         {
-          logSerialPrintf("[GESTIONE] WiFi fallito dopo %d tentativi\n", MAX_TENTATIVI);
-          //adessoDormo(8, WIFI_TIMEOUT_CONNESSIONE);
-          return WIFI_TIMEOUT_CONNESSIONE; // Non necessario (deep sleep non ritorna), ma per chiarezza
+            LOG_ERROR("[GESTIONE] WiFi fallito dopo %d tentativi\n", MAX_TENTATIVI);
+            tentativiWifi = 0;
+            return WIFI_TIMEOUT_CONNESSIONE;
         }
-        tentativiWifi ++;
-        return CONN_OK; // Riprova al prossimo ciclo
-      }
+
+        delay(1000);  // ✅ aspetta prima del prossimo tentativo
     }
 
-    // Verifica MQTT
-    if (!client.connected())
+    // ── MQTT ──────────────────────────────────────────────
+    while (!client.connected())  // ✅ stesso pattern del WiFi
     {
-      logSerialPrintln("[GESTIONE] MQTT disconnesso!");
+        LOG_WARN("[GESTIONE] MQTT disconnesso, tentativo %d/%d\n",
+                 tentativiMqtt + 1, MAX_TENTATIVI);
 
-      if (!connectMqtt())
-      {
-        // Fallito questo tentativo
+        if (connectMqtt())
+        {
+            LOG_INFO("[GESTIONE] MQTT connesso dopo %d tentativi\n",
+                     tentativiMqtt + 1);  // ✅ fix: era tentativiWifi
+            tentativiMqtt = 0;
+            break;
+        }
+
+        tentativiMqtt++;
         if (tentativiMqtt >= MAX_TENTATIVI)
         {
-          logSerialPrintf("[GESTIONE] MQTT fallito dopo %d tentativi\n", MAX_TENTATIVI);
-          //adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
-          return MQTT_TIMEOUT_CONNESSIONE;
+            LOG_ERROR("[GESTIONE] MQTT fallito dopo %d tentativi\n", MAX_TENTATIVI);
+            tentativiMqtt = 0;
+            return MQTT_TIMEOUT_CONNESSIONE;
         }
-        tentativiMqtt ++;
-        return CONN_OK; // Riprova al prossimo ciclo
-      }
+
+        delay(1000);
     }
 
-    // Tutto OK: mantieni la connessione
+    // ── Tutto OK ──────────────────────────────────────────
     client.loop();
-    tentativiWifi = 0; tentativiMqtt = 0;
     return CONN_OK;
-  }
+}
 
   // ========== SETUP COMPLETO ==========
   MotivoSpegnimento setupCompleto()
   {
-    logSerialPrintln("========================================");
-    logSerialPrintln("[SETUP] Avvio mqttWifi");
-    logSerialPrintln("========================================");
+    
+    setupWifi();          // 1️⃣ WiFi prima
+    udpLogBegin();        // 2️⃣ poi inizializza UDP log
+    LOG_VERBOSE("========================================");
+    LOG_VERBOSE("[SETUP] Avvio mqttWifi");
+    LOG_VERBOSE("========================================");
 
-    setupWifi();
+
     randomDelayAtBoot();
 
-    // Primo tentativo WiFi
-    if (!connectWifi())
-    {
-      //adessoDormo(8, WIFI_FALLITO_SETUP);
-      return WIFI_FALLITO_SETUP;
-    }
-
-    // Primo tentativo MQTT
-    if (!connectMqtt())
-    {
-      //adessoDormo(8, MQTT_TIMEOUT_CONNESSIONE);
-      return MQTT_TIMEOUT_CONNESSIONE;
-    }
-
-    logSerialPrintln("[SETUP] ✓ Setup completato con successo");
-    return SETUP_OK;
+    return gestisciConnessione();
   }
 
 } // namespace mqttWifi

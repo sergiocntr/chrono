@@ -28,7 +28,7 @@ namespace NexManager
 #endif
     delay(100);
     sendCommand("");
-    logSerialPrintf("[NexManager] Initialized at %lu baud\n", baud);
+    LOG_VERBOSE("[NexManager] Initialized at %lu baud\n", baud);
   }
   void shutdownNextion()
   {
@@ -45,11 +45,16 @@ namespace NexManager
   }
   void sendCommand(const char *cmd)
   {
+    while (NEX_SERIAL.available())
+    {
+      NEX_SERIAL.read();
+    }
+
     NEX_SERIAL.print(cmd);
     NEX_SERIAL.write(0xFF);
     NEX_SERIAL.write(0xFF);
     NEX_SERIAL.write(0xFF);
-    delay(5);
+    NEX_SERIAL.flush();
   }
 
   void setText(const char *obj, const char *text)
@@ -93,118 +98,88 @@ namespace NexManager
   }
 
   TouchEvent poll()
-  {
-    TouchEvent evt; // Inizializzato con isValid=false
+{
+    TouchEvent evt;
 
-    if (NEX_SERIAL.available() < 7)
-      return evt;
+    if (NEX_SERIAL.available() < 1)
+        return evt;
 
-    if (NEX_SERIAL.peek() != 0x65 && NEX_SERIAL.peek() != 0x71 &&
-        NEX_SERIAL.peek() != 0x70)
+    uint8_t header = NEX_SERIAL.peek();
+    if (header != 0x65 && header != 0x66 &&
+        header != 0x70 && header != 0x71)
     {
-      NEX_SERIAL.read();
-      return evt;
+        NEX_SERIAL.read(); // scarta byte non riconosciuto
+        return evt;
     }
 
-    uint8_t header = NEX_SERIAL.read();
+    // ✅ Header valido trovato: aspetta che arrivi il pacchetto completo
+    uint8_t required = 0;
+    switch (header) {
+        case 0x65: required = 7; break;
+        case 0x66: required = 5; break;
+        case 0x71: required = 8; break;
+        case 0x70: required = 2; break;
+    }
+
+    // Aspetta fino a 20ms che arrivino tutti i byte
+    uint32_t start = millis();
+    while (NEX_SERIAL.available() < required)
+    {
+        if (millis() - start > 8)
+        {
+            // Timeout: pacchetto incompleto, svuota e rinuncia
+            while (NEX_SERIAL.available()) NEX_SERIAL.read();
+            LOG_VERBOSE("[NexTouch] Timeout pacchetto, scartato");
+            return evt;
+        }
+    }
+
+    // Da qui in poi i byte ci sono tutti — procedi come prima
+    NEX_SERIAL.read(); // consuma header
 
     switch (header)
     {
     case 0x65:
-      evt.isValid = true;
-      evt.page = NEX_SERIAL.read();
-      evt.component = NEX_SERIAL.read();
-      evt.event = NEX_SERIAL.read(); // 0=release, 1=press
-
-      // Consuma i 3 byte di terminazione
-      for (int i = 0; i < 3; i++)
-        NEX_SERIAL.read();
-
-      logSerialPrintf("[NexTouch] P:%u ID:%u E:%u\n",
-                      evt.page, evt.component, evt.event);
-      break;
-
+    {
+        evt.page      = NEX_SERIAL.read();
+        evt.component = NEX_SERIAL.read();
+        evt.event     = NEX_SERIAL.read();
+        for (int i = 0; i < 3; i++) NEX_SERIAL.read();
+        evt.isValid = true;
+        LOG_VERBOSE("[NexTouch] P:%u ID:%u E:%u\n",
+                        evt.page, evt.component, evt.event);
+        break;
+    }
     case 0x66:
-      evt.isValid = true;
-      evt.page = NEX_SERIAL.read();
-
-      for (int i = 0; i < 3; i++)
-        NEX_SERIAL.read();
-
-      logSerialPrintf("[NexPage] %u\n", evt.page);
-      break;
-
+    {
+        evt.page = NEX_SERIAL.read();
+        for (int i = 0; i < 3; i++) NEX_SERIAL.read();
+        evt.isValid = true;
+        LOG_VERBOSE("[NexPage] %u\n", evt.page);
+        break;
+    }
     case 0x70:
-      // String
-      // skip for now
-      while (NEX_SERIAL.available() && NEX_SERIAL.peek() != 0xFF)
-        NEX_SERIAL.read();
-      for (int i = 0; i < 3; i++)
-        if (NEX_SERIAL.available())
-          NEX_SERIAL.read();
-      break;
-
+    {
+        while (NEX_SERIAL.available() && NEX_SERIAL.peek() != 0xFF)
+            NEX_SERIAL.read();
+        for (int i = 0; i < 3; i++)
+            if (NEX_SERIAL.available()) NEX_SERIAL.read();
+        break;
+    }
     case 0x71:
-      // Numeric
-      uint32_t val = 0;
-      for (int i = 0; i < 4; i++)
-        val |= ((uint32_t)NEX_SERIAL.read() << (8 * i));
-      for (int i = 0; i < 3; i++)
-        NEX_SERIAL.read();
-      logSerialPrintf("[NexNum] %u\n", val);
-      break;
-
-      // default:
-
-      //  break;
+    {
+        uint32_t val = 0;
+        for (int i = 0; i < 4; i++)
+            val |= ((uint32_t)NEX_SERIAL.read() << (8 * i));
+        for (int i = 0; i < 3; i++) NEX_SERIAL.read();
+        LOG_VERBOSE("[NexNum] %lu\n", val);
+        break;
+    }
+    default: break;
     }
 
-    // if (header == 0x66)
-    // {
-    //   evt.isValid = true;
-    //   evt.page = NEX_SERIAL.read();
-
-    //   for (int i = 0; i < 3; i++)
-    //     NEX_SERIAL.read();
-
-    //   logSerialPrintf("[NexPage] %u\n", evt.page);
-    // }
-
-    // else if (header == 0x65)
-    // { // Touch Event
-    //   evt.isValid = true;
-    //   evt.page = NEX_SERIAL.read();
-    //   evt.component = NEX_SERIAL.read();
-    //   evt.event = NEX_SERIAL.read(); // 0=release, 1=press
-
-    //   // Consuma i 3 byte di terminazione
-    //   for (int i = 0; i < 3; i++)
-    //     NEX_SERIAL.read();
-
-    //   logSerialPrintf("[NexTouch] P:%u ID:%u E:%u\n",
-    //                   evt.page, evt.component, evt.event);
-    // }
-    // else if (header == 0x71)
-    // { // Numeric
-    //   uint32_t val = 0;
-    //   for (int i = 0; i < 4; i++)
-    //     val |= ((uint32_t)NEX_SERIAL.read() << (8 * i));
-    //   for (int i = 0; i < 3; i++)
-    //     NEX_SERIAL.read();
-    //   logSerialPrintf("[NexNum] %u\n", val);
-    // }
-    // else if (header == 0x70)
-    // { // String
-    //   // skip for now
-    //   while (NEX_SERIAL.available() && NEX_SERIAL.peek() != 0xFF)
-    //     NEX_SERIAL.read();
-    //   for (int i = 0; i < 3; i++)
-    //     if (NEX_SERIAL.available())
-    //       NEX_SERIAL.read();
-    // }
-
     return evt;
-  }
+}
 
   void refreshCurrentPage()
   {
@@ -217,12 +192,12 @@ namespace NexManager
 
     if (stato.currPage == 0)
     {
-      //logSerialPrintf("[refreshCurrentPage] Page %d", stato.currPage);
-      // Raggruppa operazioni simili
-      const char *textWidgets[] = {"Ncurr_hour", "Nday", "Ntcurr", "Nout_temp",
-                                   "Nout_hum", "Nin_hum", "Nwater_temp", "Nset_temp"};
-      const char *cropWidgets[] = {"Nrisc_on", "Nwater_on", "Nalarm"};
-      const char *values[] = {stato.timeStr, stato.dayStr, "", "", "", "", "", ""};
+      // //LOG_VERBOSE("[refreshCurrentPage] Page %d", stato.currPage);
+      // // Raggruppa operazioni simili
+      // const char *textWidgets[] = {"Ncurr_hour", "Nday", "Ntcurr", "Nout_temp",
+      //                              "Nout_hum", "Nin_hum", "Nwater_temp", "Nset_temp"};
+      // const char *cropWidgets[] = {"Nrisc_on", "Nwater_on", "Nalarm"};
+      // const char *values[] = {stato.timeStr, stato.dayStr, "", "", "", "", "", ""};
 
       // Aggiorna testo data/ora
       NexManager::sendFormatted("Ncurr_hour.txt=\"%s\"", stato.timeStr);
@@ -246,8 +221,6 @@ namespace NexManager
 
       // Potenza come intero
       NexManager::sendFormatted("Nset_temp.txt=\"%d\"", stato.powerW);
-
-      NexManager::sendFormatted("Ncurr_hour.txt=\"TEST\""); // <--------- !!!!!!!!!! Da togliere
     }
     else if (stato.currPage == 1)
     {
