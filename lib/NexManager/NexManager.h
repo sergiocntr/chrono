@@ -68,6 +68,7 @@ TouchEvent poll();
 void refreshCurrentPage();
 void shutdownNextion();
 void wakeupNextion();
-
+void setPage(const char *pageId);
+void aggiornaSliderTende();
 
 } // namespace NexManager

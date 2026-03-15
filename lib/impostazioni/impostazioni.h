@@ -4,7 +4,7 @@
 
 #define DEBUG_CHRONO
 #define DEBUG_UDP_LOG // UDP sempre attivo
-#define DEBUG_LEVEL 1 // 0=solo errori, 1=warning, 2=info, 3=verbose
+#define DEBUG_LEVEL 3 // 0=solo errori, 1=warning, 2=info, 3=verbose
 
 #define UDP_LOG_IP "192.168.1.100" // broadcast, funziona senza IP fisso
 #define UDP_LOG_PORT 4444
@@ -18,11 +18,10 @@ extern WiFiUDP udpLog; // definito nel .cpp principale
 
 void udpLogBegin();
 void udpLogSend(const char *msg);
-void udpLogSend_f(const char* fmt, ...);
+void udpLogSend_f(const char *fmt, ...);
 
 // Helper per convertire qualsiasi tipo, incluso IPAddress
-template <typename T>
-inline String _toStr(T val) { return String(val); }
+template <typename T> inline String _toStr(T val) { return String(val); }
 inline String _toStr(IPAddress ip) { return ip.toString(); }
 
 #define LOG_ERROR(...) udpLogSend_f(__VA_ARGS__) // sempre attivo
@@ -31,27 +30,24 @@ inline String _toStr(IPAddress ip) { return ip.toString(); }
 #if DEBUG_LEVEL >= 1
 #define LOG_WARN(...) udpLogSend_f(__VA_ARGS__)
 #else
-#define LOG_WARN(...) \
-  do                  \
-  {                   \
+#define LOG_WARN(...)                                                          \
+  do {                                                                         \
   } while (0)
 #endif
 
 #if DEBUG_LEVEL >= 2
 #define LOG_INFO(...) udpLogSend_f(__VA_ARGS__)
 #else
-#define LOG_INFO(...) \
-  do                  \
-  {                   \
+#define LOG_INFO(...)                                                          \
+  do {                                                                         \
   } while (0)
 #endif
 
 #if DEBUG_LEVEL >= 3
 #define LOG_VERBOSE(...) udpLogSend_f(__VA_ARGS__)
 #else
-#define LOG_VERBOSE(...) \
-  do                     \
-  {                      \
+#define LOG_VERBOSE(...)                                                       \
+  do {                                                                         \
   } while (0)
 #endif
 #endif
@@ -79,56 +75,48 @@ inline String _toStr(IPAddress ip) { return ip.toString(); }
 
 #else
 // Produzione — tutto sparisce
-#define logSerialBegin(a) \
-  do                      \
-  {                       \
+#define logSerialBegin(a)                                                      \
+  do {                                                                         \
   } while (0)
-#define logSerialPrint(a) \
-  do                      \
-  {                       \
+#define logSerialPrint(a)                                                      \
+  do {                                                                         \
   } while (0)
-#define LOG_VERBOSE(a) \
-  do                        \
-  {                         \
+#define LOG_VERBOSE(a)                                                         \
+  do {                                                                         \
   } while (0)
-#define LOG_VERBOSE(...) \
-  do                         \
-  {                          \
+#define LOG_VERBOSE(...)                                                       \
+  do {                                                                         \
   } while (0)
 #endif
 
 extern const char *mqttId;
-struct tempStr
-{
+struct tempStr {
   float t;
   float h;
   uint8_t confort;
 };
 extern tempStr myTemp;
 
-enum Tende
-{
-  TENDA_SALOTTO, // 0
-  TENDA_LEO,     // 1
-  TAPPA_SALOTTO, // 2
-  TAPPA_LEO,     // 3
-  TAPPA_CAMERA   // 4
+enum Tende {
+  PERSIANA_LEO,     // 0 pl_cr id 10 - pl_bar id 5
+  TENDA_LEO,        // 1 tl_cr id 11 - tl_bar id 6
+  PERSIANA_SALOTTO, // 2 ps_cr id 12 - ps_bar id 7
+  TENDA_SALOTTO,    // 3 ts_cr id 13 - ts_bar id 8
+  PERSIANA_CAMERA   // 4 pc_cr id 14 - pc_bar id 9
 };
 
 // Enum per i comandi delle tende
-enum ComandoTende
-{
-  CHIUDI,      // 0
-  APRI,        // 1
-  FERMA,       // 2 (STOP)
-  PARZIALE,    // 3
-  TENDE_STATUS // 4
+enum ComandoTende {
+  
+  
+  T_STOP =15,      //st_cr id 15
+  T_OPEN =16,       // up_cr id 16   
+  T_CLOSE =17,     //dw_cr id 17  
 };
 extern ComandoTende comandoTenda;
 
 // ========== ENUM MOTIVI SPEGNIMENTO ==========
-enum MotivoSpegnimento
-{
+enum MotivoSpegnimento {
   PUBLISH_FALLITO = 0,
   COMANDO_SYSTEM_TOPIC = 1,
   WIFI_TIMEOUT_CONNESSIONE = 2,
@@ -159,16 +147,14 @@ extern MotivoSpegnimento m_wifi_status;
 // extern NexCrop Nrisc_on;
 // extern NexCrop Nalarm;
 // ========== INDICI PER GLI ARRAY DI STATO ==========
-enum SensIdx
-{
+enum SensIdx {
   INT = 0, // Interno (Chrono)
   EXT = 1, // Esterno (ESPmeteo)
   BAG = 2, // Bagno
   MAX_SENS = 4
 };
 
-enum RelayIdx
-{
+enum RelayIdx {
   RISCALDAMENTO = 0,
   ACQUA = 1,
   ALLARME = 2,
@@ -178,8 +164,7 @@ enum RelayIdx
   ENERGIA = 6,
   MAX_RELAY = 7
 };
-struct __attribute__((packed)) SystemState
-{
+struct __attribute__((packed)) SystemState {
   float temps[MAX_SENS];
   float hums[MAX_SENS];
   float waterTemp;
@@ -187,10 +172,9 @@ struct __attribute__((packed)) SystemState
   uint8_t pos[6]; // slider tende
   bool relays[MAX_RELAY];
   uint8_t currPage;
-  int8_t activeTenda;
-  uint32_t lastUpdate;
-  char timeStr[16]; // Esempio: "HH:MM"
-  char dayStr[32];  // Esempio: "Lunedi"
+  uint8_t selectionMask; // Bitmask per selezione multipla tende
+  char timeStr[8]; // Esempio: "HH:MM"
+  char dayStr[8];  // Esempio: "Lunedi"
 };
 
 extern SystemState stato;

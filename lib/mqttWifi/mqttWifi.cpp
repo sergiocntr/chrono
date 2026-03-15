@@ -253,7 +253,7 @@ namespace mqttWifi
     success &= client.subscribe(riscaldaTopic);
     success &= client.subscribe(updateTopic);
     success &= client.subscribe(eneValTopic);
-
+    success &= client.subscribe(tendeTuyaState);
     client.loop();
 
     if (success)

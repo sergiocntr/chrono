@@ -15,6 +15,25 @@ Il dispositivo segue questa logica:
 4. ......
 
 ### Versioni - Change log
+#### 3.0.0  
+
+### ✨ Nuova Architettura Modulare
+
+#### 🎯 **Principali Cambiamenti**
+
+1. **Rimossa dipendenza dalla libreria Nextion ufficiale**
+   - Niente più classi pesanti (NexText, NexButton, NexCrop)
+   - Comunicazione diretta con comandi Nextion via seriale
+   - Riduzione drastica del footprint di memoria
+
+2. **Nuova funzione universale `sendFormatted()`**
+   ```cpp
+   // Unica funzione per TUTTI i comandi Nextion
+   NexManager::sendFormatted("%s.txt=\"%s\"", "t0", "testo");     // Testo
+   NexManager::sendFormatted("%s.val=%d", "h0", 50);              // Valore
+   NexManager::sendFormatted("%s.pic=%d", "c0", 5);               // Immagine
+   NexManager::sendFormatted("vis %s,%d", "q0", 1);               // Visibilità
+   NexManager::sendFormatted("page %d", 1);                       // Pagina
 #### 2.1.0  
 - Chrono versione = 148;
 - Creazione README

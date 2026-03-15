@@ -44,9 +44,9 @@ namespace nexchr
 
   void Nb_upPushCallback(void *ptr)
   {
-    comandoTenda = APRI_PARZIALE; // Imposta il comando attuale
+    comandoTenda = T_OPEN_PARZIALE; // Imposta il comando attuale
 
-    Tende tendeTargets[] = {TAPPA_SALOTTO, TAPPA_LEO, TAPPA_CAMERA};
+    Tende tendeTargets[] = {PERSIANASALOTTO, PERSIANALEO, PERSIANACAMERA};
 
     mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda, 80);
   }
@@ -54,9 +54,9 @@ namespace nexchr
   void Nb_downPushCallback(void *ptr)
   {
 
-    Tende tendeTargets[] = {TENDA_SALOTTO, TENDA_LEO, TAPPA_SALOTTO, TAPPA_LEO, TAPPA_CAMERA};
+    Tende tendeTargets[] = {TENDA_SALOTTO, TENDA_LEO, PERSIANASALOTTO, PERSIANALEO, PERSIANACAMERA};
 
-    comandoTenda = CHIUDI; // Imposta il comando attuale
+    comandoTenda = T_CLOSE; // Imposta il comando attuale
                            // Add values in the document
 
     mqttWifi::sendTende(tendeTargets, sizeof(tendeTargets) / sizeof(tendeTargets[0]), comandoTenda, 0);

@@ -23,7 +23,7 @@ namespace mqttWifi
   void sendData();
 
   // ========== INVIO COMANDI TENDE ==========
-  void sendTende(Tende tendeTargets[], size_t numTende, ComandoTende comando, int percentuale);
+
 
   // ========== AGGIORNAMENTO FIRMWARE ==========
   void checkForUpdates();

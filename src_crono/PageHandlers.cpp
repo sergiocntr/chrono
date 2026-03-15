@@ -1,189 +1,184 @@
 #include "PageHandlers.h"
 // #include <EspNowManager.h>
-#include <impostazioni.h>
 #include "mqttWifi.h"
+#include <impostazioni.h>
 // #include "mqttWiFiMessages.h"
 #include "topic.h"
 
 // Forward declaration di funzioni esterne se necessarie
-namespace mqttWifi
-{
-    // ========== INVIO COMANDI TENDE ==========
-    void pubTende(Tende tendeTargets[], size_t numTende, ComandoTende comando,
-                  int percentuale)
-    {
-        StaticJsonDocument<256> doc;
+namespace mqttWifi {
+// ========== INVIO COMANDI TENDE ==========
+void pubTende(ComandoTende comando) {
+  if (stato.selectionMask == 0) {
+    LOG_VERBOSE("[pubTende] Nessuna tenda selezionata!\n");
+    return;
+  }
 
-        doc["comando"] = (int)comando;
-
-        if (comando == 2) // APRI PARZIALE
-        {
-            doc["percentuale"] = percentuale;
-        }
-
-        JsonArray tendeArray = doc.createNestedArray("tende");
-        for (size_t i = 0; i < numTende; i++)
-        {
-            tendeArray.add((int)tendeTargets[i]);
-        }
-
-        char buffer[256];
-        serializeJson(doc, buffer, sizeof(buffer)); // ✅ safe con size limit
-
-        LOG_VERBOSE("[pubTende] Invio comando tende...");
-
-        // Comandi tende: retained=false (sono comandi temporanei)
-        if (publish(tendeTuya, buffer, false))
-        {
-            LOG_VERBOSE("[pubTende] ✓ Comando inviato");
-        }
-        else
-        {
-            LOG_VERBOSE("[pubTende] ✗ Invio fallito");
-        }
+  Tende targets[5];
+  size_t count = 0;
+  for (int i = 0; i < 5; i++) {
+    if (stato.selectionMask & (1 << i)) {
+      targets[count++] = (Tende)i;
     }
-    void pubCommand(const char *f_topic, const char *f_value)
-    {
+  }
 
-        // Comandi rele': retained=false (sono comandi temporanei)
-        if (publish(f_topic, f_value, false))
-        {
-            LOG_VERBOSE("[pubCommand] ✓ Comando inviato");
-        }
-        else
-        {
-            LOG_VERBOSE("[pubCommand] ✗ Invio fallito");
-        }
+  for (size_t i = 0; i < count; i++) {
+    StaticJsonDocument<128> doc;
+    doc["t"] = (int)targets[i];
+    doc["c"] = (int)comando;
+
+    char buffer[128];
+    serializeJson(doc, buffer, sizeof(buffer));
+
+    LOG_VERBOSE("[pubTende] Invio comando %d a tenda %d...", (int)comando,
+                (int)targets[i]);
+
+    if (publish(tendeTuyaCmd, buffer, false)) {
+      LOG_VERBOSE(" ✓ Comando inviato");
+    } else {
+      LOG_VERBOSE(" ✗ Invio fallito");
     }
+
+    if (count > 1) {
+      delay(50);
+    }
+  }
 }
+
+void pubCommand(const char *f_topic, const char *f_value) {
+
+  // Comandi rele': retained=false (sono comandi temporanei)
+  if (mqttWifi::publish(f_topic, f_value, false)) {
+    LOG_VERBOSE("[pubCommand] ✓ Comando inviato");
+  } else {
+    LOG_VERBOSE("[pubCommand] ✗ Invio fallito");
+  }
+}
+} // namespace mqttWifi
 
 // Handler Pagina Home (ID 0)
-void handleHomePage(const NexManager::TouchEvent &evt)
-{
-    switch (evt.component)
-    {
-    case 5: // Hot Water
-        // Non invertiamo stato.relays qui, non aggiorniamo il display
-        // Mandiamo solo il comando MQTT con lo stato invertito
-        mqttWifi::pubCommand(acquaTopic, stato.relays[ACQUA] ? "0" : "1");
-        LOG_VERBOSE("[Page0] Hot Water\n");
-        break;
+void handleHomePage(const NexManager::TouchEvent &evt) {
+  switch (evt.component) {
+  case 5: // Hot Water
+    mqttWifi::pubCommand(acquaTopic, stato.relays[ACQUA] ? "0" : "1");
+    LOG_VERBOSE("[Page0] Hot Water\n");
+    break;
 
-    case 7: // Tende button - ALL OPEN
-        if (evt.event == 1)
-        {
-            stato.currPage = 0;
-            Tende allTende[] = {TAPPA_SALOTTO, TAPPA_LEO, TAPPA_CAMERA};
-            mqttWifi::pubTende(allTende, 5, APRI, 0);
-            LOG_VERBOSE("[Page] Tende button - ALL OPEN\n");
-        }
-        break;
-    case 8: // Tende Button ,ALL CLOSE
-        if (evt.event == 1)
-        {
-            stato.currPage = 0;
-            Tende allTende[] = {TENDA_LEO,TENDA_SALOTTO,TAPPA_SALOTTO, TAPPA_LEO, TAPPA_CAMERA};
-            mqttWifi::pubTende(allTende, 5, CHIUDI, 0);
-            LOG_VERBOSE("[Page] Tende button - ALL OPEN\n");
-        }
-        break;
+  case 7: // Tende button - ALL OPEN
+    mqttWifi::pubTende(T_OPEN);
 
-    case 10: // Riscaldamento
-             // Non invertiamo stato.relays qui, non aggiorniamo il display
-             // Mandiamo solo il comando MQTT con lo stato invertito
-        mqttWifi::pubCommand(riscaldaTopic, stato.relays[RISCALDAMENTO] ? "0" : "1");
-        LOG_VERBOSE("[Page0] Riscaldamento\n");
-        break;
+    LOG_VERBOSE("[Page] Tende button - ALL OPEN\n");
 
-    case 11: // shut down
-        stato.relays[ALLARME] = !stato.relays[ALLARME];
+    break;
+  case 8: // Tende Button ,ALL CLOSE
 
-        // Aggiorna il display
-        NexManager::sendFormatted("%s.picc=%d", "Nalarm", stato.relays[ALLARME]);
+    mqttWifi::pubTende(T_CLOSE);
 
-        // Pubblica il nuovo stato via MQTT
-        if (!stato.relays[ALLARME])
-            mqttWifi::pubCommand(teleTopic, "spegni");
-        LOG_VERBOSE("[Page0] ShutDown\n");
-        break;
+    LOG_VERBOSE("[Page] Tende Button, ALL CLOSE\n");
 
-    case 12:                                            // home page
-        LOG_VERBOSE("[Page0] already home page\n"); // nothing
-        break;
+    break;
 
-    case 13:                                                  // curtain page
-        LOG_VERBOSE("[Page0] Switching to Tende page\n"); // store value in stato
-        // switch to page 1
-        break;
+  case 10: // Riscaldamento
+    mqttWifi::pubCommand(riscaldaTopic,
+                         stato.relays[RISCALDAMENTO] ? "0" : "1");
+    LOG_VERBOSE("[Page0] Riscaldamento\n");
+    break;
 
+  case 11: // shut down
+    stato.relays[ALLARME] = !stato.relays[ALLARME];
+    NexManager::sendFormatted("%s.picc=%d", "Nalarm", stato.relays[ALLARME]);
+    if (!stato.relays[ALLARME])
+      mqttWifi::pubCommand(teleTopic, "spegni");
+    LOG_VERBOSE("[Page0] ShutDown\n");
+    break;
+
+  case 12: // home page
+    LOG_VERBOSE("[Page0] already home page\n");
+    break;
+
+  case 13: // curtain page
+
+    NexManager::setPage("1");
+    LOG_VERBOSE("[Page0] Switching to Tende page\n");
+    break;
+
+  default:
+    break;
+  }
+}
+
+// --- Timer di inattività pagina Tende ---
+// Variabile condivisa tra le due funzioni qui sotto.
+static uint32_t s_tendeLastInteraction = 0;
+static const uint32_t TENDE_TIMEOUT_MS = 15000;
+
+// Resetta il timer: da chiamare all'ingresso in pagina 1 e su ogni touch.
+void resetTendeTimer() { s_tendeLastInteraction = millis(); }
+
+// Controlla se il timeout è scaduto: da chiamare ad ogni ciclo di smartDelay
+// quando stato.currPage == 1. Torna in home autonomamente.
+void checkTendeTimeout() {
+  if (s_tendeLastInteraction == 0)
+    return; // timer non ancora avviato
+
+  if (millis() - s_tendeLastInteraction > TENDE_TIMEOUT_MS) {
+    LOG_VERBOSE("[Tende] Timeout inattivita'! Ritorno alla Home\n");
+    s_tendeLastInteraction = 0;
+    NexManager::setPage("0");
+  }
+}
+
+// Handler Pagina Tende (ID 1) — gestisce solo gli eventi touch.
+// Il timeout è controllato da checkTendeTimeout() in smartDelay.
+void handleTendePage(const NexManager::TouchEvent &evt) {
+  // Qualsiasi touch sulla pagina 1 resetta il timer di inattivita'
+  resetTendeTimer();
+
+  const char *barNames[] = {"pl_bar", "tl_bar", "ps_bar", "ts_bar", "pc_bar"};
+
+  // 1. Selezione tende (ID 10-14, i crop)
+  if (evt.component >= 10 && evt.component <= 14) {
+    int id = evt.component - 10;
+    stato.selectionMask |= (1 << id);
+    LOG_VERBOSE("[Tende] Selezione aggiunta: %d (Mask: %02X)\n", id,
+                stato.selectionMask);
+
+    for (int i = 0; i < 5; i++) {
+      bool isSelected = (stato.selectionMask & (1 << i));
+      NexManager::sendFormatted("vis %s,%d", barNames[i], isSelected ? 1 : 0);
+    }
+  }
+
+  // 2. Comandi movimento (Pulsanti 15, 16, 17)
+  if (evt.component >= 15 && evt.component <= 17) {
+    if (stato.selectionMask == 0) {
+      LOG_VERBOSE("[Tende] Nessuna tenda selezionata!\n");
+      return;
+    }
+
+    ComandoTende cmd;
+    const char *cmdName;
+    switch (evt.component) {
+    case 15:
+      cmd = T_STOP;
+      cmdName = "STOP";
+      break;
+    case 16:
+      cmd = T_OPEN;
+      cmdName = "OPEN";
+      break;
+    case 17:
+      cmd = T_CLOSE;
+      cmdName = "CLOSE";
+      break;
     default:
-        // Altri componenti della Home page
-        break;
+      return;
     }
+
+    LOG_VERBOSE("[Tende] Comando %s su maschera %02X\n", cmdName,
+                stato.selectionMask);
+
+    mqttWifi::pubTende(cmd);
+  }
 }
-
-// Handler Pagina Tende (ID 1)
-void handleTendePage(const NexManager::TouchEvent &evt)
-{
-    static uint32_t lastCommandTime = 0;
-
-    // Anti-spam: almeno 200ms tra comandi
-    if (millis() - lastCommandTime < 200 && evt.event == 1)
-        return;
-
-    if (evt.event == 0)
-    { // Solo press events
-        // Selezione tenda (componenti 13-17)
-        if (evt.component >= 13 && evt.component <= 17)
-        {
-            int indexMap[] = {3, 1, 2, 0, 4};
-            stato.activeTenda = indexMap[evt.component - 13];
-            lastCommandTime = millis();
-            LOG_VERBOSE("[Tende] Selected: %d\n", stato.activeTenda);
-
-            // Feedback visivo selezione
-            NexManager::sendFormatted("vis q%d,1", stato.activeTenda);
-        }
-
-        // Comandi movimento
-        if (stato.activeTenda != -1)
-        {
-            ComandoTende cmd = FERMA;
-            const char *cmdName = "STOP";
-
-            if (evt.component == 11)
-            { // UP
-                cmd = APRI;
-                cmdName = "UP";
-            }
-            else if (evt.component == 12)
-            { // DOWN
-                cmd = CHIUDI;
-                cmdName = "DOWN";
-            }
-
-            if (evt.component == 11 || evt.component == 12 || evt.component == 8)
-            {
-                lastCommandTime = millis();
-                LOG_VERBOSE("[Tende] Command %s on %d\n",
-                                cmdName, stato.activeTenda);
-
-                // Feedback visivo (flash)
-                NexManager::sendFormatted("click q%d,1", stato.activeTenda);
-                delay(80);
-                NexManager::sendFormatted("click q%d,0", stato.activeTenda);
-
-                // Invia comando MQTT
-                Tende target[] = {(Tende)stato.activeTenda};
-                mqttWifi::pubTende(target, 1, cmd, 0);
-            }
-        }
-    }
-}
-
-// Handler Pagina Impostazioni (ID 2 - esempio futuro)
-void handleSettingsPage(const NexManager::TouchEvent &evt)
-{
-    // Implementazione per pagina impostazioni
-    // ...
-}
+void handleSettingsPage(const NexManager::TouchEvent &evt) {}
