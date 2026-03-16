@@ -6,3 +6,8 @@
 compile_commands.json
 .gcc-flags.json
 tmp/
+*.txt
+*.pyc
+*.py
+.clangd
+compile_script.json
