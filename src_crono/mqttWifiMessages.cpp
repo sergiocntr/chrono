@@ -32,7 +32,7 @@ void checkForUpdates() {
   LOG_VERBOSE("[UPDATE] Controllo aggiornamenti firmware...");
 
   String fwURL = String(fwUrlBase);
-  fwURL.concat(mqttId);
+  fwURL.concat(chronoId);
   String fwVersionURL = fwURL + "/version.php";
   String fwImageURL = fwURL + "/firmware.bin";
 
@@ -201,8 +201,9 @@ void callback(char *topic, byte *payload, unsigned int length) {
 
     // Cambiamo pagina solo se c'è stato movimento e non siamo già lì
     if (movedMask > 0 && stato.currPage != 1) {
-      stato.selectionMask = movedMask; // Prepariamo la maschera per la visualizzazione
-      NexManager::setPage("1");        // Cambio pagina e refresh automatico
+      stato.selectionMask =
+          movedMask;            // Prepariamo la maschera per la visualizzazione
+      NexManager::setPage("1"); // Cambio pagina e refresh automatico
     }
     return;
   }

@@ -1,5 +1,13 @@
 #pragma once
+// Forza l'inclusione degli header corretti per ESP8266
+
 #include <Arduino.h>
+
+
+// Includi esplicitamente c_types per ESP8266
+#ifdef ESP8266
+#include <c_types.h>
+#endif
 
 /**
  * @namespace NexManager

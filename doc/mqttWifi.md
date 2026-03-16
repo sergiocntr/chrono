@@ -1,6 +1,7 @@
-# mqttWifi: Core Comunicazione
+# 🌐 Connettività WiFi & MQTT
+[← Torna al README](../README.md)
 
-Gestisce la connettività WiFi e la connessione al broker MQTT.
+Gestisce la resilienza della connessione di rete e il protocollo di comunicazione con il broker. Implementa logiche di riconnessione automatica e queuing dei messaggi.
 
 ## Gestione Connessioni (gestisciConnessione)
 

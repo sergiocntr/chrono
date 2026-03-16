@@ -1,6 +1,7 @@
-# NexManager: Gestione Display
+# 📺 NexManager: Gestore Display
+[← Torna al README](../README.md)
 
-Il modulo `NexManager` si occupa di tutta la comunicazione seriale con il display Nextion, astraendo l'invio di comandi e il parsing dei dati in arrivo.
+Il modulo `NexManager` astrae la comunicazione seriale con il display Nextion. È stato progettato per sostituire la libreria ufficiale, risparmiando oltre l'80% della memoria Flash.
 
 ## Parsing degli Eventi (poll)
 

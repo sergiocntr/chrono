@@ -1,6 +1,7 @@
-# Gestione Temperatura: temp.cpp
+# 🌡️ Gestione Sensore Temperatura
+[← Torna al README](../README.md)
 
-Gestisce la lettura locale del sensore DHT22.
+Implementa la lettura del sensore DHT22 con algoritmi di filtraggio (media mobile) per garantire dati stabili e precisi nel tempo.
 
 ## Logica di Lettura (getLocalTemp)
 

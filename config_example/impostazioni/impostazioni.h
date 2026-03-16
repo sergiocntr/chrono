@@ -1,12 +1,11 @@
 #pragma once
 #include <Arduino.h>
-// #include <Nextion.h>
 
 #define DEBUG_CHRONO
 #define DEBUG_UDP_LOG // UDP sempre attivo
 #define DEBUG_LEVEL 3 // 0=solo errori, 1=warning, 2=info, 3=verbose
 
-#define UDP_LOG_IP "192.168.1.100" // broadcast, funziona senza IP fisso
+#define UDP_LOG_IP "192.168.1.100" // IP del PC che riceve i log
 #define UDP_LOG_PORT 4444
 
 // ============================================================
@@ -51,20 +50,7 @@ inline String _toStr(IPAddress ip) { return ip.toString(); }
   } while (0)
 #endif
 #endif
-/*
-#define logSerialPrint(a)        do { \
-                                   udpLogSend(_toStr(a).c_str()); \
-                                 } while(0)
-#define LOG_VERBOSE(a)      do { \
-                                   String _s = _toStr(a) + "\n"; \
-                                   udpLogSend(_s.c_str()); \
-                                 } while(0)
-#define LOG_VERBOSE(...)     do { \
-                                   char _buf[192]; \
-                                   snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
-                                   udpLogSend(_buf); \
-                                 } while(0)
-*/
+
 #elif defined(DEBUG_CHRONO)
 // Seriale classica — invariata
 #define logSerial Serial
@@ -89,7 +75,7 @@ inline String _toStr(IPAddress ip) { return ip.toString(); }
   } while (0)
 #endif
 
-extern const char *mqttId;
+extern const char *chronoId;
 struct tempStr {
   float t;
   float h;
@@ -98,20 +84,19 @@ struct tempStr {
 extern tempStr myTemp;
 
 enum Tende {
-  PERSIANA_LEO,     // 0 pl_cr id 10 - pl_bar id 5
-  TENDA_LEO,        // 1 tl_cr id 11 - tl_bar id 6
-  PERSIANA_SALOTTO, // 2 ps_cr id 12 - ps_bar id 7
-  TENDA_SALOTTO,    // 3 ts_cr id 13 - ts_bar id 8
-  PERSIANA_CAMERA   // 4 pc_cr id 14 - pc_bar id 9
+  p_l, // 0 pl_cr id 10 - pl_bar id 5
+  t_l, // 1 tl_cr id 11 - tl_bar id 6
+  p_s, // 2 ps_cr id 12 - ps_bar id 7
+  t_s, // 3 ts_cr id 13 - ts_bar id 8
+  p_c  // 4 pc_cr id 14 - pc_bar id 9
 };
-
+constexpr int NUM_TENDE = 5;
 // Enum per i comandi delle tende
 enum ComandoTende {
-  
-  
-  T_STOP =15,      //st_cr id 15
-  T_OPEN =16,       // up_cr id 16   
-  T_CLOSE =17,     //dw_cr id 17  
+
+  T_STOP = 15,  // st_cr id 15
+  T_OPEN = 16,  // up_cr id 16
+  T_CLOSE = 17, // dw_cr id 17
 };
 extern ComandoTende comandoTenda;
 
@@ -131,21 +116,7 @@ enum MotivoSpegnimento {
   SHUTDOWN_FROM_MQTT = 255
 };
 extern MotivoSpegnimento m_wifi_status;
-// extern NexTouch *nex_listen_list[];
-// extern uint8_t db_array_value[4];
-// extern NexText Nset_temp;
-// extern NexText Ntcurr;
-// extern NexText Nout_temp;
-// extern NexCrop Nwater_on;
-// extern NexText Nout_hum;
-// extern NexText Nin_hum;
-// extern NexText Ncurr_hour;
-// extern NexText Nwater_temp;
-// extern NexText Nday;
-// extern NexButton Nb_up;
-// extern NexButton Nb_down;
-// extern NexCrop Nrisc_on;
-// extern NexCrop Nalarm;
+
 // ========== INDICI PER GLI ARRAY DI STATO ==========
 enum SensIdx {
   INT = 0, // Interno (Chrono)
@@ -173,8 +144,8 @@ struct __attribute__((packed)) SystemState {
   bool relays[MAX_RELAY];
   uint8_t currPage;
   uint8_t selectionMask; // Bitmask per selezione multipla tende
-  char timeStr[8]; // Esempio: "HH:MM"
-  char dayStr[8];  // Esempio: "Lunedi"
+  char timeStr[8];       // Esempio: "HH:MM"
+  char dayStr[8];        // Esempio: "Lunedi"
 };
 
 extern SystemState stato;

@@ -1,6 +1,7 @@
-# Documentazione Progetto Chrono
+# 🏗️ Architettura del Sistema
+[← Torna al README](../README.md)
 
-In questo documento è descritta l'architettura del firmware e il flusso logico tra i principali moduli.
+In questo documento è descritta l'architettura del firmware e il flusso logico tra i principali moduli del progetto **Chrono 2**.
 
 ## 1. Visione d'Insieme (Main Loop)
 Il file `main.cpp` gestisce il ciclo di vita principale. Utilizza la funzione `smartDelay` per garantire che il sistema non si blocchi mai durante le attese, permettendo al client MQTT di elaborare i messaggi e al display di rispondere ai tocchi.

@@ -1,11 +1,7 @@
 #include "PageHandlers.h"
-// #include <EspNowManager.h>
 #include "mqttWifi.h"
 #include <impostazioni.h>
-// #include "mqttWiFiMessages.h"
 #include "topic.h"
-
-// Forward declaration di funzioni esterne se necessarie
 namespace mqttWifi {
 // ========== INVIO COMANDI TENDE ==========
 void pubTende(ComandoTende comando) {
@@ -14,9 +10,9 @@ void pubTende(ComandoTende comando) {
     return;
   }
 
-  Tende targets[5];
+  Tende targets[NUM_TENDE];
   size_t count = 0;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < NUM_TENDE; i++) {
     if (stato.selectionMask & (1 << i)) {
       targets[count++] = (Tende)i;
     }

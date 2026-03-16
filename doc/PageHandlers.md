@@ -1,6 +1,7 @@
-# PageHandlers: Gestione Interfaccia Utente
+# 🖱️ PageHandlers: Logica Interfaccia
+[← Torna al README](../README.md)
 
-Contiene la logica applicativa che risponde agli eventi del display.
+Questo modulo contiene la logica di business che risponde agli eventi touch. Separa la gestione degli eventi dalla comunicazione di basso livello.
 
 ## Gestione Pagina Home (handleHomePage)
 

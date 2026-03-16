@@ -1,6 +1,7 @@
-# mqttWifiMessages: Gestione Messaggi MQTT
+# ✉️ Gestione Messaggi MQTT
+[← Torna al README](../README.md)
 
-Gestisce l'invio dei dati locali e la ricezione di comandi e feedback dal server MQTT.
+Questo modulo gestisce il parsing dei messaggi in ingresso e la formattazione dei dati in uscita, agendo da ponte tra il cloud/HUB e l'interfaccia fisica.
 
 ## Callback di Ricezione (callback)
 

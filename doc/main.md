@@ -1,6 +1,7 @@
-# Main Loop: main.cpp
+# 🔄 Main Loop & Inizializzazione
+[← Torna al README](../README.md)
 
-Il file `main.cpp` è il punto di ingresso dell'applicazione. Gestisce l'inizializzazione del sistema e il ciclo di esecuzione principale.
+Il file `main.cpp` è il cuore dell'applicazione. Gestisce il setup del sistema e il ciclo di esecuzione principale garantendo reattività tramite task asincroni.
 
 ## Diagramma di Flusso Principale
 
